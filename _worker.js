@@ -387,9 +387,10 @@ async function 输出结果(on, env) {
 	const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>ZQ-DnsIp</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>ZQ-DnsIp</title>
+		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='95' fill='rgba(255,255,255,0.2)' stroke='rgba(255,255,255,0.8)' stroke-width='2'/%3E%3Crect x='60' y='60' width='80' height='40' rx='5' fill='rgba(255,255,255,0.8)'/%3E%3Crect x='70' y='70' width='60' height='20' rx='2' fill='rgba(255,255,255,0.6)'/%3E%3Cpath d='M100 100 L100 120' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='50' y='130' width='100' height='30' rx='5' fill='rgba(255,255,255,0.8)' stroke='rgba(255,255,255,0.6)' stroke-width='2'/%3E%3Ccircle cx='65' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='85' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='105' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='125' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='145' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Cpath d='M140 70 L150 60 L160 70' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 80 L150 70 L160 80' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 90 L150 80 L160 90' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='30' y='40' width='40' height='20' rx='3' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E" type="image/svg+xml">
 	<style>
 		* {
 			margin: 0;
@@ -752,9 +753,10 @@ async function 密码输入界面(env, errorMessage = '') {
 	const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>ZQ-DnsIp - 密码验证</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>ZQ-DnsIp - 密码验证</title>
+		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='95' fill='rgba(255,255,255,0.2)' stroke='rgba(255,255,255,0.8)' stroke-width='2'/%3E%3Crect x='60' y='60' width='80' height='40' rx='5' fill='rgba(255,255,255,0.8)'/%3E%3Crect x='70' y='70' width='60' height='20' rx='2' fill='rgba(255,255,255,0.6)'/%3E%3Cpath d='M100 100 L100 120' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='50' y='130' width='100' height='30' rx='5' fill='rgba(255,255,255,0.8)' stroke='rgba(255,255,255,0.6)' stroke-width='2'/%3E%3Ccircle cx='65' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='85' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='105' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='125' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='145' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Cpath d='M140 70 L150 60 L160 70' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 80 L150 70 L160 80' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 90 L150 80 L160 90' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='30' y='40' width='40' height='20' rx='3' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E" type="image/svg+xml">
 	<style>
 		* {
 			margin: 0;
