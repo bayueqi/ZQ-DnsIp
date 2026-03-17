@@ -100,6 +100,12 @@ export default {
 		}
 		
 		// 直接返回输出结果作为响应
+		// 清理资源
+		IPv4 = [];
+		IPv6 = [];
+		banIP = [];
+		ipAPI = [];
+		
 		return result;
 	},
 	
@@ -154,6 +160,12 @@ export default {
 		await 输出结果(1, env);
 		
 		console.log("Cron job completed at " + new Date().toUTCString());
+		
+		// 清理资源
+		IPv4 = [];
+		IPv6 = [];
+		banIP = [];
+		ipAPI = [];
 	}
 };
 
@@ -185,40 +197,50 @@ async function API2ip(APIs) {
 	}
 
 	let newIP = "";
+	const 批次大小 = 3; // 每批调用3个API
+	const 批次间隔 = 1500; // 批次间隔1.5秒
 
-	// 创建一个AbortController对象，用于控制fetch请求的取消
-	const controller = new AbortController();
+	for (let i = 0; i < APIs.length; i += 批次大小) {
+		const 当前批次 = APIs.slice(i, i + 批次大小);
+		
+		// 创建一个AbortController对象，用于控制fetch请求的取消
+		const controller = new AbortController();
 
-	const timeout = setTimeout(() => {
-		controller.abort(); // 取消所有请求
-	}, 2000); // 2秒后触发
+		const timeout = setTimeout(() => {
+			controller.abort(); // 取消所有请求
+		}, 5000); // 5秒后触发
 
-	try {
-		// 使用Promise.allSettled等待所有API请求完成，无论成功或失败
-		// 对api数组进行遍历，对每个API地址发起fetch请求
-		const responses = await Promise.allSettled(APIs.map(apiUrl => fetch(apiUrl, {
-			method: 'get', 
-			headers: {
-				'Accept': 'text/html,application/xhtml+xml,application/xml;',
-				'User-Agent': 'cmliu/CF-Workers-DD2D'
-			},
-			signal: controller.signal // 将AbortController的信号量添加到fetch请求中，以便于需要时可以取消请求
-		}).then(response => response.ok ? response.text() : Promise.reject())));
+		try {
+			// 使用Promise.allSettled等待当前批次的API请求完成
+			const responses = await Promise.allSettled(当前批次.map(apiUrl => fetch(apiUrl, {
+				method: 'get', 
+				headers: {
+					'Accept': 'text/html,application/xhtml+xml,application/xml;',
+					'User-Agent': 'cmliu/CF-Workers-DD2D'
+				},
+				signal: controller.signal // 将AbortController的信号量添加到fetch请求中
+			}).then(response => response.ok ? response.text() : Promise.reject())));
 
-		// 遍历所有响应
-		for (const response of responses) {
-			// 检查响应状态是否为'fulfilled'，即请求成功完成
-			if (response.status === 'fulfilled') {
-				// 获取响应的内容
-				const content = await response.value;
-				newIP += content + '\n';
+			// 遍历所有响应
+			for (const response of responses) {
+				// 检查响应状态是否为'fulfilled'，即请求成功完成
+				if (response.status === 'fulfilled') {
+					// 获取响应的内容
+					const content = await response.value;
+					newIP += content + '\n';
+				}
 			}
+		} catch (error) {
+			console.error(error);
+		} finally {
+			// 无论成功或失败，最后都清除设置的超时定时器
+			clearTimeout(timeout);
 		}
-	} catch (error) {
-		console.error(error);
-	} finally {
-		// 无论成功或失败，最后都清除设置的超时定时器
-		clearTimeout(timeout);
+		
+		// 如果还有下一批，则等待指定的间隔时间
+		if (i + 批次大小 < APIs.length) {
+			await new Promise(resolve => setTimeout(resolve, 批次间隔));
+		}
 	}
 
 	const newIPs = await ADD(newIP);
@@ -242,57 +264,82 @@ async function API2ip(APIs) {
 }
 
 // 使用DoH解析域名的函数
-async function fetchDNSRecords(domain, type) {
-	// 构建查询参数
-	const query = new URLSearchParams({
-		name: domain,
-		type: type
-	});
-	const url = `${dohURL}?${query.toString()}`;
+async function fetchDNSRecords(domain, type, 重试次数 = 3) {
+	for (let i = 0; i < 重试次数; i++) {
+		try {
+			// 构建查询参数
+			const query = new URLSearchParams({
+				name: domain,
+				type: type
+			});
+			const url = `${dohURL}?${query.toString()}`;
 
-	// 发送HTTP GET请求
-	const response = await fetch(url, {
-		method: 'GET',
-		headers: {
-			'Accept': 'application/dns-json' // 接受DNS JSON格式的响应
+			// 发送HTTP GET请求
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Accept': 'application/dns-json' // 接受DNS JSON格式的响应
+				}
+			});
+
+			// 检查响应是否成功
+			if (!response.ok) {
+				throw new Error(`获取DNS记录失败: ${response.statusText}`);
+			}
+
+			// 解析响应数据
+			const data = await response.json();
+			return data.Answer || [];
+		} catch (error) {
+			console.error(`第${i+1}次解析域名 ${domain} 时出错:`, error);
+			if (i === 重试次数 - 1) {
+				throw error; // 最后一次重试失败，抛出错误
+			}
+			await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 指数退避重试
 		}
-	});
-
-	// 检查响应是否成功
-	if (!response.ok) {
-		throw new Error(`获取DNS记录失败: ${response.statusText}`);
 	}
-
-	// 解析响应数据
-	const data = await response.json();
-	return data.Answer || [];
 }
 
 // 更新IP数组的函数
 async function updateIPArrays(domains) {
 	let IP4 = [];
 	let IP6 = [];
-	for (const domain of domains) {
-		try {
-			// 获取域名的A记录
-			const aRecords = await fetchDNSRecords(domain, 'A');
-			for (const record of aRecords) {
-				if (record.type === 1) { // A记录
-					IP4.push(record.data);
-					log(`解析域名 ${domain} A记录${record.data}`);
+	const 批次大小 = 5; // 每批解析5个域名
+	const 批次间隔 = 1000; // 批次间隔1秒
+
+	for (let i = 0; i < domains.length; i += 批次大小) {
+		const 当前批次 = domains.slice(i, i + 批次大小);
+		
+		// 并发解析当前批次的域名
+		const 解析promises = 当前批次.map(async domain => {
+			try {
+				// 获取域名的A记录
+				const aRecords = await fetchDNSRecords(domain, 'A');
+				for (const record of aRecords) {
+					if (record.type === 1) { // A记录
+						IP4.push(record.data);
+						log(`解析域名 ${domain} A记录${record.data}`);
+					}
 				}
-			}
-			
-			// 获取域名的AAAA记录
-			const aaaaRecords = await fetchDNSRecords(domain, 'AAAA');
-			for (const record of aaaaRecords) {
-				if (record.type === 28) { // AAAA记录
-					IP6.push(record.data);
-					log(`解析域名 ${domain} AAAA记录${record.data}`);
+				
+				// 获取域名的AAAA记录
+				const aaaaRecords = await fetchDNSRecords(domain, 'AAAA');
+				for (const record of aaaaRecords) {
+					if (record.type === 28) { // AAAA记录
+						IP6.push(record.data);
+						log(`解析域名 ${domain} AAAA记录${record.data}`);
+					}
 				}
+			} catch (error) {
+				console.error(`解析域名 ${domain} 时出错:`, error);
 			}
-		} catch (error) {
-			console.error(`解析域名 ${domain} 时出错:`, error);
+		});
+		
+		await Promise.all(解析promises);
+		
+		// 如果还有下一批，则等待指定的间隔时间
+		if (i + 批次大小 < domains.length) {
+			await new Promise(resolve => setTimeout(resolve, 批次间隔));
 		}
 	}
 	
@@ -969,8 +1016,8 @@ async function 密码输入界面(env, errorMessage = '') {
 }
 
 async function 批量删除域名(域名ID数组) {
-	const 批次大小 = 4; // 每批并发请求的数量
-	const 批次间隔 = 2000; // 批次之间的间隔时间（毫秒）
+	const 批次大小 = 3; // 每批删除3个域名
+	const 批次间隔 = 2000; // 批次间隔2秒
   
 	for (let i = 0; i < 域名ID数组.length; i += 批次大小) {
 		const 当前批次 = 域名ID数组.slice(i, i + 批次大小);
@@ -1013,8 +1060,8 @@ async function 删除域名(域名ID) {
 }
 
 async function 批量添加解析(解析记录列表) {
-	const 批次大小 = 4; // 每批并发请求的数量
-	const 批次间隔 =2000; // 批次之间的间隔时间（毫秒）
+	const 批次大小 = 3; // 每批添加3个解析记录
+	const 批次间隔 = 2000; // 批次间隔2秒
   
 	for (let i = 0; i < 解析记录列表.length; i += 批次大小) {
 		const 当前批次 = 解析记录列表.slice(i, i + 批次大小);
