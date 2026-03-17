@@ -66,11 +66,29 @@ export default {
 			log('IP去重完成');
 			
 			// 处理被banIP
-			IPv4 = IPv4.filter(ip => !banIP.includes(ip));
-			IPv6 = IPv6.filter(ip => !banIP.includes(ip));
-			log('BAN_IP清理完成');
+		IPv4 = IPv4.filter(ip => !banIP.includes(ip));
+		IPv6 = IPv6.filter(ip => !banIP.includes(ip));
+		log('BAN_IP清理完成');
 		
-			const url = new URL(request.url);
+		// 限制IP数量最多20个
+		const maxIPCount = 20;
+		const totalIPs = IPv4.length + IPv6.length;
+		if (totalIPs > maxIPCount) {
+			// 随机选择20个IP
+			const allIPs = [...IPv4, ...IPv6];
+			const shuffled = allIPs.sort(() => 0.5 - Math.random());
+			const selected = shuffled.slice(0, maxIPCount);
+			
+			// 重新分配到IPv4和IPv6数组
+			IPv4 = selected.filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
+			IPv6 = selected.filter(ip => !/^\d+\.\d+\.\d+\.\d+$/.test(ip));
+			
+			log(`IP数量超过${maxIPCount}个，已随机保留${maxIPCount}个IP`);
+		} else {
+			log(`IP数量为${totalIPs}个，未超过限制`);
+		}
+	
+		const url = new URL(request.url);
 			console.log(url.pathname);
 			if (url.pathname == '/go') {
 				const token = url.searchParams.get('token');
@@ -155,6 +173,24 @@ export default {
 		IPv4 = IPv4.filter(ip => !banIP.includes(ip));
 		IPv6 = IPv6.filter(ip => !banIP.includes(ip));
 		log('Cron: BAN_IP清理完成');
+		
+		// 限制IP数量最多20个
+		const maxIPCount = 20;
+		const totalIPs = IPv4.length + IPv6.length;
+		if (totalIPs > maxIPCount) {
+			// 随机选择20个IP
+			const allIPs = [...IPv4, ...IPv6];
+			const shuffled = allIPs.sort(() => 0.5 - Math.random());
+			const selected = shuffled.slice(0, maxIPCount);
+			
+			// 重新分配到IPv4和IPv6数组
+			IPv4 = selected.filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
+			IPv6 = selected.filter(ip => !/^\d+\.\d+\.\d+\.\d+$/.test(ip));
+			
+			log(`Cron: IP数量超过${maxIPCount}个，已随机保留${maxIPCount}个IP`);
+		} else {
+			log(`Cron: IP数量为${totalIPs}个，未超过限制`);
+		}
 
 		// 执行输出结果，但不需要返回Response对象
 		await 输出结果(1, env);
