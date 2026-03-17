@@ -304,6 +304,9 @@ async function 输出结果(on, env) {
 	解析成功次数 = 0;
 	解析失败次数 = 0;
 
+	// 构建DoH输出字符串
+	let dohText = `<div class="section-content"><h4>DoH</h4><ul><li>${dohURL}</li></ul></div>`;
+
 	// 构建IPv6输出字符串
 	let IPv6Text = ''
 	if (IPv6.length != 0){
@@ -461,6 +464,11 @@ async function 输出结果(on, env) {
 		
 		.section-content {
 			padding: 20px;
+		}
+		
+		.section-content h4 {
+			margin-left: 20px;
+			margin-bottom: 10px;
 		}
 		
 		.config-item {
@@ -653,11 +661,10 @@ async function 输出结果(on, env) {
 			<div class="section">
 				<div class="section-header">配置信息</div>
 				<div class="section-content">
-					<h4>DoH</h4>
-					<p>${dohURL}</p>
-					${domainsTest}
-					${APIText}
-				</div>
+						${dohText}
+						${domainsTest}
+						${APIText}
+					</div>
 			</div>
 			
 			<div class="section">
