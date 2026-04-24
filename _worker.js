@@ -1,243 +1,382 @@
-// 定义域名数组
-let domains = [];
-// 定义IPv4和IPv6数组，用于存储解析后的IP地址
-let IPv4 = [];
-let IPv6 = [];
-let banIP = [];
-// 定义API列表
-let ipAPI = [];//'https://ipdb.030101.xyz/api/bestproxy.txt'
-// 定义DoH（DNS over HTTPS）URL
-let dohURL = 'https://cloudflare-dns.com/dns-query';
-
-//Cloudflare DDNS
-let CF邮箱 = '';//admin@gmail.com
-let CF域名 = '';//ddns.google.com
-let CF区域ID = '';//6f0b34f36efb4bdaf5e22d68ac8e5c96
-let CFAPI令牌 = '';//tGb4_4f3efb4bdaf5e22d68ac8exRnJTC6-IWocs
-
-let 执行日志 = '';
-
-let BotToken ='';
-let ChatID =''; 
-let tgmsg = '';
-
-let 解析成功次数 = 0;
-let 解析失败次数 = 0;
-
 export default {
 	async fetch(request, env, ctx) {
-		执行日志 = '';
-		let result = '';
-		try {
-			if (env.DOMAIN) domains = await ADD(env.DOMAIN);
-			if (env.IPV4) IPv4 = await ADD(env.IPV4);
-			if (env.IPV6) IPv6 = await ADD(env.IPV6);
-			if (env.BANIP) banIP = await ADD(env.BANIP);
-			if (env.IPAPI) ipAPI = await ADD(env.IPAPI);
-			dohURL = env.DOH || dohURL;
-			
-			CF邮箱 = env.CFMAIL || CF邮箱;
-			CF域名 = env.CFDOMAIN || CF域名;
-			CF区域ID = env.CFZONEID || CF区域ID; 
-			CFAPI令牌 = env.CFKEY || CFAPI令牌; 
-			
-			BotToken = env.TGTOKEN || BotToken;
-			ChatID = env.TGID || ChatID; 
-			
-			log('变量加载完成');
-			if ((domains.length + IPv4.length + IPv6.length + ipAPI.length) == 0) {
-				domains = ['cdn.xn--b6gac.eu.org'];
-				log('DOMAIN、IPV4、IPV6、IPAPI变量值均为空，添加 演示解析域名 cdn.xn--b6gac.eu.org')
-			}
-			// 更新IPv4和IPv6数组
-			const d2ip = await updateIPArrays(domains);
-			IPv4 = IPv4.concat(d2ip[0]);
-			IPv6 = IPv6.concat(d2ip[1]);
-			log('域名解析完成');
-			
-			const api2ip = await API2ip(ipAPI);
-			IPv4 = IPv4.concat(api2ip[0]);
-			IPv6 = IPv6.concat(api2ip[1]);
-			log('API调用完成');
-			
-			// 对数组进行去重
-			IPv4 = [...new Set(IPv4)];
-			IPv6 = [...new Set(IPv6)];
-			log('IP去重完成');
-			
-			// 处理被banIP
-		IPv4 = IPv4.filter(ip => !banIP.includes(ip));
-		IPv6 = IPv6.filter(ip => !banIP.includes(ip));
-		log('BAN_IP清理完成');
-		
-		// 限制IP数量最多20个
-		const maxIPCount = 20;
-		const totalIPs = IPv4.length + IPv6.length;
-		if (totalIPs > maxIPCount) {
-			// 随机选择20个IP
-			const allIPs = [...IPv4, ...IPv6];
-			const shuffled = allIPs.sort(() => 0.5 - Math.random());
-			const selected = shuffled.slice(0, maxIPCount);
-			
-			// 重新分配到IPv4和IPv6数组
-			IPv4 = selected.filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
-			IPv6 = selected.filter(ip => !/^\d+\.\d+\.\d+\.\d+$/.test(ip));
-			
-			log(`IP数量超过${maxIPCount}个，已随机保留${maxIPCount}个IP`);
-		} else {
-			log(`IP数量为${totalIPs}个，未超过限制`);
-		}
-	
 		const url = new URL(request.url);
-			console.log(url.pathname);
-			if (url.pathname == '/go') {
-				const token = url.searchParams.get('token');
-				const action = url.searchParams.get('action');
-				
-				// 如果是提交密码验证
-				if (action === 'execute' && token) {
-					if (env.TOKEN && env.TOKEN != token) {
-						log('token不正确');
-						result = await 密码输入界面(env, '密码错误，请重新输入');
-					} else {
-						log('手动执行');
-						result = await 输出结果(1, env);
-					}
-				} else {
-					// 显示密码输入界面
-					result = await 密码输入界面(env);
-				}
-			} else {
-				result = await 输出结果(0, env);
-			}
-		} catch (error) {
-			log(`发生错误: ${error.message}`);
-			console.error(error);
-			// 即使发生错误，也确保调用输出结果
-			result = await 输出结果(0, env);
-		}
-		
-		// 直接返回输出结果作为响应
-		// 清理资源
-		IPv4 = [];
-		IPv6 = [];
-		banIP = [];
-		ipAPI = [];
-		
-		return result;
-	},
-	
-	// 添加对scheduled事件的处理
-	async scheduled(event, env, ctx) {
-		// 在这里执行定期任务的逻辑
-		console.log("Cron job started at " + new Date().toUTCString());
-		
-		// 复用fetch方法中的逻辑
-		if (env.DOMAIN) domains = await ADD(env.DOMAIN);
-		if (env.IPV4) IPv4 = await ADD(env.IPV4);
-		if (env.IPV6) IPv6 = await ADD(env.IPV6);
-		if (env.BANIP) banIP = await ADD(env.BANIP);
-		if (env.IPAPI) ipAPI = await ADD(env.IPAPI);
-		dohURL = env.DOH || dohURL;
-	
-		CF邮箱 = env.CFMAIL || CF邮箱;
-		CF域名 = env.CFDOMAIN || CF域名;
-		CF区域ID = env.CFZONEID || CF区域ID; 
-		CFAPI令牌 = env.CFKEY || CFAPI令牌; 
-	
-		BotToken = env.TGTOKEN || BotToken;
-		ChatID = env.TGID || ChatID; 
-	
-		log('Cron: 变量加载完成');
-		if( (domains.length + IPv4.length + IPv6.length + ipAPI.length) == 0){
-			domains = ['cdn.xn--b6gac.eu.org'];
-			log('DOMAIN、IPV4、IPV6、IPAPI变量值均为空，添加 演示解析域名 cdn.xn--b6gac.eu.org')
-		}
-		// 更新IPv4和IPv6数组
-		const d2ip = await updateIPArrays(domains);
-		IPv4 = IPv4.concat(d2ip[0]);
-		IPv6 = IPv6.concat(d2ip[1]);
-		log('Cron: 域名解析完成');
-	
-		const api2ip = await API2ip(ipAPI);
-		IPv4 = IPv4.concat(api2ip[0]);
-		IPv6 = IPv6.concat(api2ip[1]);
-		log('Cron: API调用完成');
-	
-		// 对数组进行去重
-		IPv4 = [...new Set(IPv4)];
-		IPv6 = [...new Set(IPv6)];
-		log('Cron: IP去重完成');
-	
-		// 处理被banIP
-		IPv4 = IPv4.filter(ip => !banIP.includes(ip));
-		IPv6 = IPv6.filter(ip => !banIP.includes(ip));
-		log('Cron: BAN_IP清理完成');
-		
-		// 限制IP数量最多20个
-		const maxIPCount = 20;
-		const totalIPs = IPv4.length + IPv6.length;
-		if (totalIPs > maxIPCount) {
-			// 随机选择20个IP
-			const allIPs = [...IPv4, ...IPv6];
-			const shuffled = allIPs.sort(() => 0.5 - Math.random());
-			const selected = shuffled.slice(0, maxIPCount);
-			
-			// 重新分配到IPv4和IPv6数组
-			IPv4 = selected.filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
-			IPv6 = selected.filter(ip => !/^\d+\.\d+\.\d+\.\d+$/.test(ip));
-			
-			log(`Cron: IP数量超过${maxIPCount}个，已随机保留${maxIPCount}个IP`);
-		} else {
-			log(`Cron: IP数量为${totalIPs}个，未超过限制`);
+		const pathname = url.pathname;
+
+		// KV存储初始化
+		const KV = env.DnsIp || null;
+
+		// 检查是否是API请求
+		if (request.method === 'POST' && pathname.startsWith('/api/')) {
+			return await handleAPI(request, env, pathname);
 		}
 
-		// 执行输出结果，但不需要返回Response对象
-		await 输出结果(1, env);
-		
-		console.log("Cron job completed at " + new Date().toUTCString());
-		
-		// 清理资源
-		IPv4 = [];
-		IPv6 = [];
-		banIP = [];
-		ipAPI = [];
+		// 获取或生成TOKEN
+		let token = await KV?.get('token');
+
+		// 检查是否已认证
+		const authToken = url.searchParams.get('token') || getCookie(request, 'token');
+		const isAuthenticated = authToken === token;
+
+		// 路由处理
+		if (pathname === '/') {
+			// 首次访问且未认证，显示设置密码页面
+			const firstVisit = await KV?.get('first_visit');
+			if (!firstVisit) {
+				return showSetupPage();
+			}
+			// 未认证，显示登录页
+			if (!isAuthenticated) {
+				return showLoginPage();
+			}
+			// 已认证，显示主页
+			return showDashboard(await getConfig(KV), token);
+		} else if (pathname === '/setup') {
+			if (request.method === 'POST') {
+				const formData = await request.formData();
+				const newToken = formData.get('token');
+				if (newToken && newToken.trim()) {
+					await KV?.put('token', newToken.trim());
+					await KV?.put('first_visit', 'true');
+					return new Response(null, { status: 302, headers: { Location: '/login' } });
+				}
+				return showSetupPage('请输入密码不能为空');
+			}
+			return showSetupPage();
+		} else if (pathname === '/login') {
+			if (request.method === 'POST') {
+				const formData = await request.formData();
+				const inputToken = formData.get('token');
+				if (inputToken === token) {
+					const response = new Response(null, { status: 302, headers: { Location: '/' } });
+					response.headers.set('Set-Cookie', 'token=' + token + '; Path=/; Max-Age=31536000');
+					return response;
+				}
+				return showLoginPage('密码错误');
+			}
+			return showLoginPage();
+		} else if (pathname === '/execute') {
+			if (!isAuthenticated) {
+				return new Response('Unauthorized', { status: 401 });
+			}
+			return await executeTask(env);
+		}
+
+		return new Response('Not Found', { status: 404 });
+	},
+
+	async scheduled(event, env, ctx) {
+		// 定时执行任务
+		const KV = env.DnsIp || null;
+		const config = await getConfig(KV);
+		await executeTaskForAllDomains(config, KV);
 	}
 };
 
-async function sendMessage(msg) {
-	if ( BotToken !== '' && ChatID !== ''){
-		let url = "https://api.telegram.org/bot"+ BotToken +"/sendMessage?chat_id=" + ChatID + "&parse_mode=HTML&text=" + encodeURIComponent(msg);
-		console.log(msg);
-		log(`TG推送完成`);
+// ==================== 工具函数 ====================
+
+function generateToken() {
+	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	let token = '';
+	for (let i = 0; i < 16; i++) {
+		token += chars.charAt(Math.floor(Math.random() * chars.length));
+	}
+	return token;
+}
+
+function getCookie(request, name) {
+	const cookies = request.headers.get('Cookie') || '';
+	const match = cookies.match(new RegExp('(^| )' + name + '=([^;]+)'));
+	return match ? match[2] : null;
+}
+
+async function getConfig(KV) {
+	if (!KV) return { domains: [], tgToken: '', tgId: '' };
+	const configStr = await KV.get('config');
+	return configStr ? JSON.parse(configStr) : { domains: [], tgToken: '', tgId: '' };
+}
+
+async function saveConfig(KV, config) {
+	if (!KV) return;
+	await KV.put('config', JSON.stringify(config));
+}
+
+// ==================== API处理 ====================
+
+async function handleAPI(request, env, pathname) {
+	const KV = env.DnsIp || null;
+	const authToken = getCookie(request, 'token') || new URL(request.url).searchParams.get('token');
+	const storedToken = await KV?.get('token');
+	
+	if (authToken !== storedToken) {
+		return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { 
+			status: 401, 
+			headers: { 'Content-Type': 'application/json' } 
+		});
+	}
+
+	if (pathname === '/api/save-config') {
+		const config = await request.json();
+		await saveConfig(KV, config);
+		return new Response(JSON.stringify({ success: true }), { 
+			headers: { 'Content-Type': 'application/json' } 
+		});
+	} else if (pathname === '/api/get-config') {
+		const config = await getConfig(KV);
+		return new Response(JSON.stringify({ success: true, config }), { 
+			headers: { 'Content-Type': 'application/json' } 
+		});
+	} else if (pathname === '/api/change-password') {
+		const data = await request.json();
+		if (data.newPassword) {
+			await KV?.put('token', data.newPassword);
+			return new Response(JSON.stringify({ success: true }), { 
+				headers: { 'Content-Type': 'application/json' } 
+			});
+		}
+		return new Response(JSON.stringify({ success: false, error: '新密码不能为空' }), { 
+			status: 400, 
+			headers: { 'Content-Type': 'application/json' } 
+		});
+	}
+
+	return new Response(JSON.stringify({ success: false, error: 'Not Found' }), { 
+		status: 404, 
+		headers: { 'Content-Type': 'application/json' } 
+	});
+}
+
+// ==================== 页面渲染 ====================
+
+function showSetupPage(error = '') {
+	let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 设置密码</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tmin-height: 100vh;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tpadding: 20px;\n\t\t}\n\t\t.container {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 15px;\n\t\t\tpadding: 40px;\n\t\t\tmax-width: 500px;\n\t\t\twidth: 100%;\n\t\t\tbox-shadow: 0 10px 40px rgba(0,0,0,0.2);\n\t\t}\n\t\th1 { color: #333; margin-bottom: 20px; text-align: center; }\n\t\t.info {\n\t\t\tbackground: #d4edda;\n\t\t\tcolor: #155724;\n\t\t\tpadding: 15px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #c3e6cb;\n\t\t}\n\t\t.form-group { margin-bottom: 20px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; }\n\t\tinput[type="password"], input[type="text"] {\n\t\t\twidth: 100%;\n\t\t\tpadding: 12px 15px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t}\n\t\tinput:focus {\n\t\t\toutline: none;\n\t\t\tborder-color: #667eea;\n\t\t}\n\t\t.error {\n\t\t\tbackground: #f8d7da;\n\t\t\tcolor: #721c24;\n\t\t\tpadding: 10px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #f5c6cb;\n\t\t}\n\t\t.btn {\n\t\t\twidth: 100%;\n\t\t\tpadding: 15px;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tborder: none;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t\tfont-weight: bold;\n\t\t\tcursor: pointer;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="container">\n\t\t<h1>🎉 欢迎使用 ZQ-DnsIp</h1>\n\t\t<div class="info">\n\t\t\t<p><strong>首次使用，请设置你的登录密码</strong></p>\n\t\t</div>';
+	if (error) {
+		html += '<div class="error">' + error + '</div>';
+	}
+	html += '\n\t\t<form method="post" action="/setup">\n\t\t\t<div class="form-group">\n\t\t\t\t<label>设置登录密码</label>\n\t\t\t\t<input type="text" name="token" placeholder="请输入你想设置的密码" required autocomplete="off">\n\t\t\t</div>\n\t\t\t<button type="submit" class="btn">保存密码</button>\n\t\t</form>\n\t</div>\n</body>\n</html>';
+	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+function showLoginPage(error = '') {
+	let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 登录</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tmin-height: 100vh;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tpadding: 20px;\n\t\t}\n\t\t.container {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 15px;\n\t\t\tpadding: 40px;\n\t\t\tmax-width: 400px;\n\t\t\twidth: 100%;\n\t\t\tbox-shadow: 0 10px 40px rgba(0,0,0,0.2);\n\t\t}\n\t\th1 { color: #333; margin-bottom: 30px; text-align: center; }\n\t\t.form-group { margin-bottom: 20px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; }\n\t\tinput[type="password"] {\n\t\t\twidth: 100%;\n\t\t\tpadding: 12px 15px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t}\n\t\tinput[type="password"]:focus {\n\t\t\toutline: none;\n\t\t\tborder-color: #667eea;\n\t\t}\n\t\t.error {\n\t\t\tbackground: #f8d7da;\n\t\t\tcolor: #721c24;\n\t\t\tpadding: 10px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #f5c6cb;\n\t\t}\n\t\t.btn {\n\t\t\twidth: 100%;\n\t\t\tpadding: 15px;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tborder: none;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t\tfont-weight: bold;\n\t\t\tcursor: pointer;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="container">\n\t\t<h1>🔐 登录 ZQ-DnsIp</h1>';
+	if (error) {
+		html += '<div class="error">' + error + '</div>';
+	}
+	html += '\n\t\t<form method="post" action="/login">\n\t\t\t<div class="form-group">\n\t\t\t\t<label>请输入密码</label>\n\t\t\t\t<input type="password" name="token" placeholder="输入你的登录密码" required>\n\t\t\t</div>\n\t\t\t<button type="submit" class="btn">登录</button>\n\t\t</form>\n\t</div>\n</body>\n</html>';
+	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+function showDashboard(config, token) {
+	const html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 管理面板</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: #f5f7fa;\n\t\t\tcolor: #333;\n\t\t}\n\t\t.header {\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tpadding: 20px 30px;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: space-between;\n\t\t\talign-items: center;\n\t\t}\n\t\t.container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }\n\t\t.card {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 10px;\n\t\t\tpadding: 25px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tbox-shadow: 0 2px 10px rgba(0,0,0,0.1);\n\t\t}\n\t\t.card h2 { color: #667eea; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }\n\t\t.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }\n\t\t.form-group { margin-bottom: 15px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 14px; }\n\t\tinput[type="text"], textarea, select {\n\t\t\twidth: 100%;\n\t\t\tpadding: 10px 12px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 6px;\n\t\t\tfont-size: 14px;\n\t\t}\n\t\ttextarea { min-height: 80px; resize: vertical; }\n\t\t.domain-item {\n\t\t\tbackground: #f8f9fa;\n\t\t\tborder: 1px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tpadding: 20px;\n\t\t\tmargin-bottom: 15px;\n\t\t}\n\t\t.domain-header {\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: space-between;\n\t\t\talign-items: center;\n\t\t\tmargin-bottom: 15px;\n\t\t\tpadding-bottom: 10px;\n\t\t\tborder-bottom: 1px solid #e0e0e0;\n\t\t}\n\t\t.btn {\n\t\t\tpadding: 10px 20px;\n\t\t\tborder: none;\n\t\t\tborder-radius: 6px;\n\t\t\tfont-size: 14px;\n\t\t\tfont-weight: 600;\n\t\t\tcursor: pointer;\n\t\t\ttransition: all 0.3s;\n\t\t}\n\t\t.btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }\n\t\t.btn-success { background: #28a745; color: white; }\n\t\t.btn-danger { background: #dc3545; color: white; }\n\t\t.btn-secondary { background: #6c757d; color: white; }\n\t\t.btn:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }\n\t\t.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }\n\t\t.log-area {\n\t\t\tbackground: #1e1e1e;\n\t\t\tcolor: #d4d4d4;\n\t\t\tfont-family: "Courier New", monospace;\n\t\t\tpadding: 15px;\n\t\t\tborder-radius: 8px;\n\t\t\tmax-height: 300px;\n\t\t\toverflow-y: auto;\n\t\t\tmargin-top: 15px;\n\t\t}\n\t\t.hidden { display: none; }\n\t\t.alert { padding: 15px; border-radius: 8px; margin-bottom: 15px; }\n\t\t.alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }\n\t\t.alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }\n\t\t.modal {\n\t\t\tdisplay: none;\n\t\t\tposition: fixed;\n\t\t\ttop: 0;\n\t\t\tleft: 0;\n\t\t\twidth: 100%;\n\t\t\theight: 100%;\n\t\t\tbackground: rgba(0,0,0,0.5);\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tz-index: 1000;\n\t\t}\n\t\t.modal.show { display: flex; }\n\t\t.modal-content {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 10px;\n\t\t\tpadding: 30px;\n\t\t\tmax-width: 400px;\n\t\t\twidth: 90%;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="header">\n\t\t<h1>🎛️ ZQ-DnsIp 管理面板</h1>\n\t\t<button class="btn btn-secondary" onclick="showChangePasswordModal()">修改密码</button>\n\t</div>\n\t\n\t<div class="container">\n\t\t<div id="alert" class="hidden"></div>\n\t\t\n\t\t<!-- Telegram配置 -->\n\t\t<div class="card">\n\t\t\t<h2>📱 Telegram 通知配置</h2>\n\t\t\t<div class="form-row">\n\t\t\t\t<div class="form-group">\n\t\t\t\t\t<label>TG Bot Token</label>\n\t\t\t\t\t<input type="text" id="tgToken" placeholder="例如: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">\n\t\t\t\t</div>\n\t\t\t\t<div class="form-group">\n\t\t\t\t\t<label>TG Chat ID</label>\n\t\t\t\t\t<input type="text" id="tgId" placeholder="例如: 123456789">\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t</div>\n\t\t\n\t\t<!-- 域名配置列表 -->\n\t\t<div class="card">\n\t\t\t<h2>🌐 域名配置</h2>\n\t\t\t<div id="domainList"></div>\n\t\t\t<button class="btn btn-primary" onclick="addDomain()">+ 添加域名</button>\n\t\t</div>\n\t\t\n\t\t<!-- 操作按钮 -->\n\t\t<div class="card">\n\t\t\t<div class="btn-group">\n\t\t\t\t<button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>\n\t\t\t\t<button class="btn btn-primary" onclick="executeTask()">▶️ 立即执行</button>\n\t\t\t</div>\n\t\t\t<div id="logArea" class="log-area hidden"></div>\n\t\t</div>\n\t</div>\n\n\t<!-- 修改密码模态框 -->\n\t<div id="passwordModal" class="modal">\n\t\t<div class="modal-content">\n\t\t\t<h2>修改登录密码</h2>\n\t\t\t<div class="form-group">\n\t\t\t\t<label>新密码</label>\n\t\t\t\t<input type="text" id="newPassword" placeholder="输入新密码">\n\t\t\t</div>\n\t\t\t<div class="btn-group">\n\t\t\t\t<button class="btn btn-primary" onclick="changePassword()">确认修改</button>\n\t\t\t\t<button class="btn btn-secondary" onclick="closePasswordModal()">取消</button>\n\t\t\t</div>\n\t\t</div>\n\t</div>\n\n<script>\n\tlet config = ' + JSON.stringify(config) + ';\n\t\n\tfunction showAlert(message, type = "success") {\n\t\tconst alert = document.getElementById("alert");\n\t\talert.textContent = message;\n\t\talert.className = "alert alert-" + type;\n\t\tsetTimeout(() => alert.className = "hidden", 3000);\n\t}\n\t\n\tfunction renderDomains() {\n\t\tconst container = document.getElementById("domainList");\n\t\tcontainer.innerHTML = config.domains.map((domain, index) => `\n\t\t\t<div class="domain-item" data-index="${index}">\n\t\t\t\t<div class="domain-header">\n\t\t\t\t\t<strong>域名: ${domain.cfDomain || "未命名"}</strong>\n\t\t\t\t\t<button class="btn btn-danger" onclick="removeDomain(${index})">删除</button>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF 登录邮箱</label>\n\t\t\t\t\t\t<input type="text" data-field="cfMail" placeholder="admin@gmail.com" value="${domain.cfMail || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF 待解析域名</label>\n\t\t\t\t\t\t<input type="text" data-field="cfDomain" placeholder="ddns.google.com" value="${domain.cfDomain || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF Zone ID</label>\n\t\t\t\t\t\t<input type="text" data-field="cfZoneId" placeholder="区域ID" value="${domain.cfZoneId || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF API Token</label>\n\t\t\t\t\t\t<input type="text" data-field="cfKey" placeholder="API令牌" value="${domain.cfKey || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>DoH URL</label>\n\t\t\t\t\t\t<input type="text" data-field="doh" placeholder="默认https://cloudflare-dns.com/dns-query" value="${domain.doh || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>解析域名 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="domains" placeholder="cdn.example.com,cdn2.example.com">${domain.domains || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IPv4 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipv4" placeholder="8.8.8.8,1.1.1.1">${domain.ipv4 || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IPv6 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipv6" placeholder="2406:8dc0:...">${domain.ipv6 || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>封禁IP (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="banIp" placeholder="1.1.1.1">${domain.banIp || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IP API (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipApi" placeholder="https://example.com/api/ip">${domain.ipApi || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t`).join("");\n\t\t\n\t\tdocument.getElementById("tgToken").value = config.tgToken || "";\n\t\tdocument.getElementById("tgId").value = config.tgId || "";\n\t}\n\t\n\tfunction collectConfig() {\n\t\tconst domains = [];\n\t\tdocument.querySelectorAll(".domain-item").forEach(item => {\n\t\t\tconst domain = {};\n\t\t\titem.querySelectorAll("[data-field]").forEach(input => {\n\t\t\t\tdomain[input.dataset.field] = input.value;\n\t\t\t});\n\t\t\tdomains.push(domain);\n\t\t});\n\t\treturn {\n\t\t\ttgToken: document.getElementById("tgToken").value,\n\t\t\ttgId: document.getElementById("tgId").value,\n\t\t\tdomains\n\t\t};\n\t}\n\t\n\tfunction addDomain() {\n\t\t// 先收集当前配置，避免已输入的值丢失\n\t\tconfig = collectConfig();\n\t\tconfig.domains.push({});\n\t\trenderDomains();\n\t}\n\t\n\tfunction removeDomain(index) {\n\t\t// 先收集当前配置，避免已输入的值丢失\n\t\tconfig = collectConfig();\n\t\tconfig.domains.splice(index, 1);\n\t\trenderDomains();\n\t}\n\t\n\tasync function saveConfig() {\n\t\tconfig = collectConfig();\n\t\tconst response = await fetch("/api/save-config", {\n\t\t\tmethod: "POST",\n\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\tbody: JSON.stringify(config)\n\t\t});\n\t\tconst result = await response.json();\n\t\tif (result.success) showAlert("配置保存成功！");\n\t\telse showAlert("保存失败: " + result.error, "danger");\n\t}\n\t\n\tfunction showChangePasswordModal() {\n\t\tdocument.getElementById("passwordModal").classList.add("show");\n\t}\n\t\n\tfunction closePasswordModal() {\n\t\tdocument.getElementById("passwordModal").classList.remove("show");\n\t}\n\t\n\tasync function changePassword() {\n\t\tconst newPassword = document.getElementById("newPassword").value;\n\t\tif (!newPassword) {\n\t\t\tshowAlert("密码不能为空", "danger");\n\t\t\treturn;\n\t\t}\n\t\tconst response = await fetch("/api/change-password", {\n\t\t\tmethod: "POST",\n\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\tbody: JSON.stringify({ newPassword })\n\t\t});\n\t\tconst result = await response.json();\n\t\tif (result.success) {\n\t\t\tshowAlert("密码修改成功！请重新登录");\n\t\t\tsetTimeout(() => {\n\t\t\t\tdocument.location.href = "/login";\n\t\t\t}, 1500);\n\t\t} else {\n\t\t\tshowAlert("密码修改失败: " + result.error, "danger");\n\t\t}\n\t}\n\t\n\tasync function executeTask() {\n\t\tconst logArea = document.getElementById("logArea");\n\t\tlogArea.classList.remove("hidden");\n\t\tlogArea.innerHTML = "执行中...\\n";\n\t\t\n\t\ttry {\n\t\t\tconst configData = collectConfig();\n\t\t\tconst response = await fetch("/execute", {\n\t\t\t\tmethod: "POST",\n\t\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\t\tbody: JSON.stringify(configData)\n\t\t\t});\n\t\t\tconst result = await response.json();\n\t\t\tlogArea.innerHTML = result.log || "执行完成";\n\t\t} catch (e) {\n\t\t\tlogArea.innerHTML = "错误: " + e.message;\n\t\t}\n\t}\n\t\n\trenderDomains();\n</script>\n</body>\n</html>';
+	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+// ==================== 任务执行 ====================
+
+async function executeTask(env) {
+	const KV = env.DnsIp || null;
+	const config = await getConfig(KV);
+	const log = [];
+	const results = await executeTaskForAllDomains(config, KV, log);
+	return new Response(JSON.stringify({ success: true, log: log.join('\n'), results }), {
+		headers: { 'Content-Type': 'application/json' }
+	});
+}
+
+async function executeTaskForAllDomains(config, KV, logRef = null) {
+	const results = [];
+	const log = logRef || [];
+	
+	for (const domainConfig of config.domains) {
+		if (!domainConfig.cfDomain || !domainConfig.cfZoneId || !domainConfig.cfKey) {
+			log?.push('跳过配置不完整的域名');
+			continue;
+		}
+		try {
+			const result = await processDomain(domainConfig, log);
+			results.push(result);
+		} catch (e) {
+			log?.push('处理域名 ' + domainConfig.cfDomain + ' 出错: ' + e.message);
+			results.push({ 
+				domain: domainConfig.cfDomain, 
+				success: false, 
+				error: e.message,
+				successCount: 0,
+				failCount: 0,
+				ipv4List: [],
+				ipv6List: []
+			});
+		}
+	}
+	
+	// 发送TG通知
+	if (config.tgToken && config.tgId && results.length > 0) {
+		try {
+			let totalMessage = 'ZQ-DnsIp:\n';
+			// 把所有域名的信息合并到一条消息中
+			for (const result of results) {
+				totalMessage += `\n${result.domain} 解析完成! 成功: ${result.successCount} 失败: ${result.failCount}`;
+				// 添加IPv4记录
+				if (result.ipv4List && result.ipv4List.length > 0) {
+					for (const ip of result.ipv4List) {
+						totalMessage += `\nA记录: ${ip}`;
+					}
+				}
+				// 添加IPv6记录
+				if (result.ipv6List && result.ipv6List.length > 0) {
+					for (const ip of result.ipv6List) {
+						totalMessage += `\nAAAA记录: ${ip}`;
+					}
+				}
+			}
+			// 只发送一条通知
+			await sendTGMessage(config.tgToken, config.tgId, totalMessage);
+			log?.push('TG通知发送成功');
+		} catch (e) {
+			log?.push('TG通知发送失败: ' + e.message);
+		}
+	}
+	
+	return results;
+}
+
+async function processDomain(config, log) {
+	const domain = config.cfDomain;
+	log?.push('开始处理域名: ' + domain);
+	
+	// 解析IP
+	const ipv4 = await parseIPList(config.ipv4);
+	const ipv6 = await parseIPList(config.ipv6);
+	const banIp = await parseIPList(config.banIp);
+	
+	// 从域名解析
+	const domainList = await parseIPList(config.domains);
+	const dnsResult = await resolveDomains(domainList, config.doh || 'https://cloudflare-dns.com/dns-query', log);
+	
+	// 从API获取
+	const apiList = await parseIPList(config.ipApi);
+	const apiResult = await fetchFromAPIs(apiList, log);
+	
+	// 合并和过滤IP
+	let allIPv4 = [...ipv4, ...dnsResult.ipv4, ...apiResult.ipv4];
+	let allIPv6 = [...ipv6, ...dnsResult.ipv6, ...apiResult.ipv6];
+	
+	// 去重
+	allIPv4 = [...new Set(allIPv4)];
+	allIPv6 = [...new Set(allIPv6)];
+	
+	// 过滤封禁IP
+	allIPv4 = allIPv4.filter(ip => !banIp.includes(ip));
+	allIPv6 = allIPv6.filter(ip => !banIp.includes(ip));
+	
+	// 限制数量
+	const maxIPs = 10;
+	if (allIPv4.length + allIPv6.length > maxIPs) {
+		const all = [...allIPv4, ...allIPv6].sort(() => 0.5 - Math.random()).slice(0, maxIPs);
+		allIPv4 = all.filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip));
+		allIPv6 = all.filter(ip => !/^\d+\.\d+\.\d+\.\d+$/.test(ip));
+		log?.push('IP数量超过' + maxIPs + '个，已随机保留' + maxIPs + '个');
+	}
+	
+	log?.push('最终IPv4: ' + allIPv4.length + '个, IPv6: ' + allIPv6.length + '个');
+	
+	// 更新Cloudflare DNS
+	const updateResult = await updateCloudflareDNS(config, allIPv4, allIPv6, log);
+	
+	return { 
+		domain, 
+		success: updateResult.success, 
+		successCount: updateResult.successCount, 
+		failCount: updateResult.failCount,
+		ipv4List: allIPv4,
+		ipv6List: allIPv6
+	};
+}
+
+async function parseIPList(str) {
+	if (!str) return [];
+	return str.replace(/[ \t\r\n]+/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '').split(',').filter(Boolean);
+}
+
+async function resolveDomains(domains, dohUrl, log) {
+	let ipv4 = [], ipv6 = [];
+	const 批次大小 = 5; // 每批解析5个域名
+	const 批次间隔 = 1000; // 批次间隔1秒
+
+	for (let i = 0; i < domains.length; i += 批次大小) {
+		const 当前批次 = domains.slice(i, i + 批次大小);
 		
-		return fetch(url, {
-			method: 'get',
-			headers: {
-				'Accept': 'text/html,application/xhtml+xml,application/xml;',
-				'Accept-Encoding': 'gzip, deflate, br',
-				'User-Agent': 'Mozilla/5.0 Chrome/90.0.4430.72'
+		// 并发解析当前批次的域名
+		const 解析promises = 当前批次.map(async domain => {
+			try {
+				// 获取域名的A记录
+				const aRecords = await fetchDNS(domain, 'A', dohUrl);
+				for (const record of aRecords) {
+					if (record.type === 1) { // A记录
+						ipv4.push(record.data);
+						log?.push('解析 ' + domain + ' A记录' + record.data);
+					}
+				}
+				
+				// 获取域名的AAAA记录
+				const aaaaRecords = await fetchDNS(domain, 'AAAA', dohUrl);
+				for (const record of aaaaRecords) {
+					if (record.type === 28) { // AAAA记录
+						ipv6.push(record.data);
+						log?.push('解析 ' + domain + ' AAAA记录' + record.data);
+					}
+				}
+			} catch (e) {
+				log?.push('解析 ' + domain + ' 失败: ' + e.message);
 			}
 		});
-	} else {
-		log(`TG推送关闭`);
+		
+		await Promise.all(解析promises);
+		
+		// 如果还有下一批，则等待指定的间隔时间
+		if (i + 批次大小 < domains.length) {
+			await new Promise(resolve => setTimeout(resolve, 批次间隔));
+		}
+	}
+	
+	return { ipv4, ipv6 };
+}
+
+async function fetchDNS(domain, type, dohUrl) {
+	for (let i = 0; i < 3; i++) { // 重试3次
+		try {
+			const url = new URL(dohUrl);
+			url.searchParams.set('name', domain);
+			url.searchParams.set('type', type);
+			const response = await fetch(url.toString(), {
+				headers: { 'Accept': 'application/dns-json' }
+			});
+			
+			if (!response.ok) {
+				throw new Error('获取DNS记录失败: ' + response.statusText);
+			}
+			
+			const data = await response.json();
+			return data.Answer || [];
+		} catch (e) {
+			if (i === 2) throw e; // 最后一次重试失败
+			await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 指数退避重试
+		}
 	}
 }
 
-// 更新IP数组的函数
-async function API2ip(APIs) {
-	let IP4 = [];
-	let IP6 = [];
-	if (!APIs || APIs.length === 0) {
-		return [IP4, IP6];
+async function fetchFromAPIs(apis, log) {
+	let ipv4 = [], ipv6 = [];
+	if (!apis || apis.length === 0) {
+		return { ipv4, ipv6 };
 	}
 
-	let newIP = "";
+	let newIP = '';
 	const 批次大小 = 3; // 每批调用3个API
 	const 批次间隔 = 1500; // 批次间隔1.5秒
 
-	for (let i = 0; i < APIs.length; i += 批次大小) {
-		const 当前批次 = APIs.slice(i, i + 批次大小);
+	for (let i = 0; i < apis.length; i += 批次大小) {
+		const 当前批次 = apis.slice(i, i + 批次大小);
 		
 		// 创建一个AbortController对象，用于控制fetch请求的取消
 		const controller = new AbortController();
@@ -262,24 +401,24 @@ async function API2ip(APIs) {
 				// 检查响应状态是否为'fulfilled'，即请求成功完成
 				if (response.status === 'fulfilled') {
 					// 获取响应的内容
-					const content = await response.value;
+					const content = response.value;
 					newIP += content + '\n';
 				}
 			}
 		} catch (error) {
-			console.error(error);
+			log?.push('API批量请求出错: ' + error.message);
 		} finally {
 			// 无论成功或失败，最后都清除设置的超时定时器
 			clearTimeout(timeout);
 		}
 		
 		// 如果还有下一批，则等待指定的间隔时间
-		if (i + 批次大小 < APIs.length) {
+		if (i + 批次大小 < apis.length) {
 			await new Promise(resolve => setTimeout(resolve, 批次间隔));
 		}
 	}
 
-	const newIPs = await ADD(newIP);
+	const newIPs = parseIPListSync(newIP);
 	// 正则表达式匹配IPv4地址
 	const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
@@ -288,844 +427,146 @@ async function API2ip(APIs) {
 
 	newIPs.forEach(ip => {
 		if (ipv4Regex.test(ip)) {
-			IP4.push(ip);
-			log(`API获取 A记录${ip}`);
+			ipv4.push(ip);
+			log?.push('API获取 A记录' + ip);
 		} else if (ipv6Regex.test(ip)) {
-			IP6.push(ip);
-			log(`API获取 AAAA记录${ip}`);
+			ipv6.push(ip);
+			log?.push('API获取 AAAA记录' + ip);
 		}
 	});
 
-	return [IP4, IP6];
+	return { ipv4, ipv6 };
 }
 
-// 使用DoH解析域名的函数
-async function fetchDNSRecords(domain, type, 重试次数 = 3) {
-	for (let i = 0; i < 重试次数; i++) {
-		try {
-			// 构建查询参数
-			const query = new URLSearchParams({
-				name: domain,
-				type: type
-			});
-			const url = `${dohURL}?${query.toString()}`;
-
-			// 发送HTTP GET请求
-			const response = await fetch(url, {
-				method: 'GET',
-				headers: {
-					'Accept': 'application/dns-json' // 接受DNS JSON格式的响应
-				}
-			});
-
-			// 检查响应是否成功
-			if (!response.ok) {
-				throw new Error(`获取DNS记录失败: ${response.statusText}`);
-			}
-
-			// 解析响应数据
-			const data = await response.json();
-			return data.Answer || [];
-		} catch (error) {
-			console.error(`第${i+1}次解析域名 ${domain} 时出错:`, error);
-			if (i === 重试次数 - 1) {
-				throw error; // 最后一次重试失败，抛出错误
-			}
-			await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 指数退避重试
-		}
-	}
+function parseIPListSync(str) {
+	if (!str) return [];
+	return str.replace(/[ \t\r\n]+/g, ',').replace(/,+/g, ',').replace(/^,|,$/g, '').split(',').filter(Boolean);
 }
 
-// 更新IP数组的函数
-async function updateIPArrays(domains) {
-	let IP4 = [];
-	let IP6 = [];
-	const 批次大小 = 5; // 每批解析5个域名
-	const 批次间隔 = 1000; // 批次间隔1秒
-
-	for (let i = 0; i < domains.length; i += 批次大小) {
-		const 当前批次 = domains.slice(i, i + 批次大小);
-		
-		// 并发解析当前批次的域名
-		const 解析promises = 当前批次.map(async domain => {
-			try {
-				// 获取域名的A记录
-				const aRecords = await fetchDNSRecords(domain, 'A');
-				for (const record of aRecords) {
-					if (record.type === 1) { // A记录
-						IP4.push(record.data);
-						log(`解析域名 ${domain} A记录${record.data}`);
-					}
-				}
-				
-				// 获取域名的AAAA记录
-				const aaaaRecords = await fetchDNSRecords(domain, 'AAAA');
-				for (const record of aaaaRecords) {
-					if (record.type === 28) { // AAAA记录
-						IP6.push(record.data);
-						log(`解析域名 ${domain} AAAA记录${record.data}`);
-					}
-				}
-			} catch (error) {
-				console.error(`解析域名 ${domain} 时出错:`, error);
-			}
-		});
-		
-		await Promise.all(解析promises);
-		
-		// 如果还有下一批，则等待指定的间隔时间
-		if (i + 批次大小 < domains.length) {
-			await new Promise(resolve => setTimeout(resolve, 批次间隔));
-		}
-	}
+async function updateCloudflareDNS(config, ipv4List, ipv6List, log) {
+	const zoneId = config.cfZoneId;
+	const cfMail = config.cfMail;
+	const cfKey = config.cfKey;
+	const domain = config.cfDomain;
 	
-	return [IP4, IP6];
-}
-
-// 输出结果的函数
-async function 输出结果(on, env) {
-	解析成功次数 = 0;
-	解析失败次数 = 0;
-
-	// 构建DoH输出字符串
-	let dohText = `<div class="section-content"><h4>DoH</h4><ul><li>${dohURL}</li></ul></div>`;
-
-	// 构建IPv6输出字符串
-	let IPv6Text = ''
-	if (IPv6.length != 0){
-		IPv6Text = `<div class="section-content"><h4>IPv6</h4><ul>${IPv6.map(ip => `<li>${ip}</li>`).join('')}</ul></div>`;
+	// 获取现有记录
+	const listUrl = 'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records?name=' + domain;
+	const listResponse = await fetch(listUrl, {
+		headers: {
+			'X-Auth-Email': cfMail,
+			'Authorization': 'Bearer ' + cfKey,
+			'Content-Type': 'application/json'
+		}
+	});
+	const listData = await listResponse.json();
+	console.log(JSON.stringify(listData, null, 2));
+	
+	let 域名现有解析ID = [];
+	if (!listData.success || listData.result.length === 0) {
+		log?.push(domain + ' 域名解析为空，跳过删除域名流程');
+	} else {
+		for (const record of listData.result) {
+			域名现有解析ID.push(record.id);
+		}
+		log?.push('现有域名ID\n' + 域名现有解析ID.join('\n'));
 	}
 
-	let APIText = ''
-	if (ipAPI.length != 0){
-		APIText = `<div class="section-content"><h4>IP API</h4><ul>${ipAPI.map(api => `<li>${api}</li>`).join('')}</ul></div>`;
-	}
+	// 批量删除域名
+	await 批量删除域名(域名现有解析ID, zoneId, cfMail, cfKey, domain, log);
 
-	let banIPTest = ''
-	if (banIP.length != 0){
-		banIPTest = `<div class="section-content"><h4>BAN IP</h4><ul>${banIP.map(ip => `<li>${ip}</li>`).join('')}</ul></div>`;
-	}
-
-	let domainsTest = '';
-	if (domains.length != 0){
-		domainsTest = `<div class="section-content"><h4>解析域名</h4><ul>${domains.map(domain => `<li>${domain}</li>`).join('')}</ul></div>`;
-	}
+	await new Promise(resolve => setTimeout(resolve, 8000));
 
 	// 构建解析记录列表
-	const 解析记录列表 = [...IPv4.map(ip => ({ type: 'A', content: ip })), ...IPv6.map(ip => ({ type: 'AAAA', content: ip }))];
+	const 解析记录列表 = [...ipv4List.map(ip => ({ type: 'A', content: ip })), ...ipv6List.map(ip => ({ type: 'AAAA', content: ip }))];
 
-	const CF配置检查 = CF域名 + CF区域ID + CFAPI令牌 + CF邮箱;
-	let CF配置信息
-	if (CF配置检查 && CF配置检查 != '' && on == 1){
-		CF配置信息 = `<div class="config-item"><strong>域名：</strong>${CF域名}</div>
-<div class="config-item"><strong>邮箱：</strong>${CF邮箱.substring(0, 1)}******</div>
-<div class="config-item"><strong>区域ID：</strong>${CF区域ID.substring(0, 3)}*************************${CF区域ID.substring(CF区域ID.length - 4)}</div>
-<div class="config-item"><strong>API令牌：</strong>${CFAPI令牌.substring(0, 3)}*************************${CFAPI令牌.substring(CFAPI令牌.length - 4)}</div>`;
-		const 域名现有解析ID_URL = `https://api.cloudflare.com/client/v4/zones/${CF区域ID}/dns_records?name=${CF域名}`;
-		const response = await fetch(域名现有解析ID_URL, {
-			method: 'GET',
-			headers: {
-				'X-Auth-Email': CF邮箱,
-				'Authorization': `Bearer ${CFAPI令牌}`,
-				'Content-Type': 'application/json'
-			}
-		});
-		const data = await response.json();
-		console.log(JSON.stringify(data, null, 2));
-		let 域名现有解析ID = [];
-		if (!data.success || data.result.length === 0){
-			log(`${CF域名} 域名解析为空，跳过删除域名流程`)
-		} else {
-			for (let record of data.result) {
-				域名现有解析ID.push(record.id);
-			}
-			log(`现有域名ID\n${域名现有解析ID.join('\n')}`);
-		}
-
-		// 并发删除域名
-		await 批量删除域名(域名现有解析ID);
-
-		await new Promise(resolve => setTimeout(resolve, 8000));
-
-		// 调用批量添加解析
-		await 批量添加解析(解析记录列表);
-
-	} else {
-		if(on == 0){
-			CF配置信息 = `<div class="config-item"><strong>域名：</strong>${CF域名}</div>
-<div class="config-item"><strong>邮箱：</strong>${CF邮箱.substring(0, 1)}******</div>
-<div class="config-item"><strong>区域ID：</strong>${CF区域ID.substring(0, 3)}*************************${CF区域ID.substring(CF区域ID.length - 4)}</div>
-<div class="config-item"><strong>API令牌：</strong>${CFAPI令牌.substring(0, 3)}*************************${CFAPI令牌.substring(CFAPI令牌.length - 4)}</div>`;
-		} else {
-			CF配置信息 = '<div class="error-message">Cloudflare配置信息错误！</div>'
-		}
-		
-	}
+	// 调用批量添加解析
+	const result = await 批量添加解析(解析记录列表, zoneId, cfMail, cfKey, domain, log);
 	
-	// 构建执行日志HTML
-	const logLines = 执行日志.split('\n').filter(line => line.trim() !== '');
-	const logHtml = logLines.map(line => `<div class="log-line">${line}</div>`).join('');
-	
-	// 构建IPv4 HTML
-	const ipv4Html = `<div class="section-content"><h4>IPv4</h4><ul>${IPv4.map(ip => `<li>${ip}</li>`).join('')}</ul></div>`;
-	
-	// 构建最终的HTML输出
-	const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>ZQ-DnsIp</title>
-		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='95' fill='rgba(255,255,255,0.2)' stroke='rgba(255,255,255,0.8)' stroke-width='2'/%3E%3Crect x='60' y='60' width='80' height='40' rx='5' fill='rgba(255,255,255,0.8)'/%3E%3Crect x='70' y='70' width='60' height='20' rx='2' fill='rgba(255,255,255,0.6)'/%3E%3Cpath d='M100 100 L100 120' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='50' y='130' width='100' height='30' rx='5' fill='rgba(255,255,255,0.8)' stroke='rgba(255,255,255,0.6)' stroke-width='2'/%3E%3Ccircle cx='65' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='85' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='105' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='125' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='145' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Cpath d='M140 70 L150 60 L160 70' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 80 L150 70 L160 80' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 90 L150 80 L160 90' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='30' y='40' width='40' height='20' rx='3' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E" type="image/svg+xml">
-	<style>
-		* {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-		}
-		
-		body {
-			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			background-color: #f5f7fa;
-			color: #333;
-			line-height: 1.6;
-			padding: 20px;
-		}
-		
-		.container {
-			max-width: 1200px;
-			margin: 0 auto;
-			background-color: #fff;
-			border-radius: 10px;
-			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-			overflow: hidden;
-		}
-		
-		.header {
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			color: white;
-			padding: 30px;
-			text-align: center;
-		}
-		
-		.header .logo {
-			margin-bottom: 20px;
-			display: flex;
-			justify-content: center;
-		}
-		
-		.header h1 {
-			font-size: 2.5em;
-			margin-bottom: 10px;
-			font-weight: 600;
-		}
-		
-		.header p {
-			font-size: 1.1em;
-			opacity: 0.9;
-		}
-		
-		.content {
-			padding: 30px;
-		}
-		
-		.section {
-			margin-bottom: 30px;
-			border: 1px solid #e0e0e0;
-			border-radius: 8px;
-			overflow: hidden;
-		}
-		
-		.section-header {
-			background-color: #f8f9fa;
-			padding: 15px 20px;
-			border-bottom: 1px solid #e0e0e0;
-			font-weight: 600;
-			font-size: 1.1em;
-			color: #555;
-		}
-		
-		.section-content {
-			padding: 20px;
-		}
-		
-		.section-content h4 {
-			margin-left: 20px;
-			margin-bottom: 10px;
-		}
-		
-		.config-item {
-			margin-bottom: 10px;
-			padding: 8px 0;
-			border-bottom: 1px solid #f0f0f0;
-		}
-		
-		.config-item:last-child {
-			border-bottom: none;
-		}
-		
-		ul {
-			list-style-type: none;
-			margin-left: 20px;
-		}
-		
-		li {
-			margin-bottom: 8px;
-			position: relative;
-		}
-		
-		li:before {
-			content: "•";
-			color: #667eea;
-			font-weight: bold;
-			position: absolute;
-			left: -15px;
-		}
-		
-		.log-section {
-			max-height: 300px;
-			overflow-y: auto;
-			background-color: #f8f9fa;
-			border: 1px solid #e0e0e0;
-			border-radius: 5px;
-		}
-		
-		.log-line {
-			padding: 5px 15px;
-			border-bottom: 1px solid #e0e0e0;
-			font-family: 'Courier New', Courier, monospace;
-			font-size: 0.9em;
-		}
-		
-		.log-line:last-child {
-			border-bottom: none;
-		}
-		
-		.error-message {
-			color: #dc3545;
-			font-weight: 600;
-			padding: 10px;
-			background-color: #f8d7da;
-			border: 1px solid #f5c6cb;
-			border-radius: 5px;
-		}
-		
-		.footer {
-			background-color: #f8f9fa;
-			padding: 20px;
-			text-align: center;
-			border-top: 1px solid #e0e0e0;
-			margin-top: 30px;
-		}
-		
-		.footer a {
-			color: #667eea;
-			text-decoration: none;
-			font-weight: 500;
-		}
-		
-		.footer a:hover {
-			text-decoration: underline;
-		}
-		
-		.stats {
-			display: flex;
-			gap: 20px;
-			margin-top: 20px;
-			padding: 15px;
-			background-color: #f8f9fa;
-			border-radius: 8px;
-		}
-		
-		.stat-item {
-			flex: 1;
-			text-align: center;
-		}
-		
-		.stat-number {
-			font-size: 1.5em;
-			font-weight: 600;
-			margin-bottom: 5px;
-		}
-		
-		.success {
-			color: #28a745;
-		}
-		
-		.failure {
-			color: #dc3545;
-		}
-		
-		.action-area {
-			padding: 20px;
-			background-color: #f8f9fa;
-			border-radius: 8px;
-			text-align: center;
-		}
-		
-		.token-info {
-			margin: 15px 0;
-			padding: 10px;
-			background-color: #e3f2fd;
-			border-radius: 5px;
-			color: #1976d2;
-		}
-		
-		.action-button {
-			display: inline-block;
-			padding: 12px 30px;
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			color: white;
-			text-decoration: none;
-			border-radius: 50px;
-			font-weight: 600;
-			transition: all 0.3s ease;
-			margin-top: 10px;
-		}
-		
-		.action-button:hover {
-			transform: translateY(-2px);
-			box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-		}
-		
-		@media (max-width: 768px) {
-			.container {
-				margin: 0 10px;
-			}
-			
-			.header h1 {
-				font-size: 2em;
-			}
-			
-			.content {
-				padding: 20px;
-			}
-			
-			.stats {
-				flex-direction: column;
-				gap: 10px;
-			}
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="header">
-			<div class="logo">
-				<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 200 200">
-				  <circle cx="100" cy="100" r="95" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
-				  <rect x="60" y="60" width="80" height="40" rx="5" fill="rgba(255,255,255,0.8)"/>
-				  <rect x="70" y="70" width="60" height="20" rx="2" fill="rgba(255,255,255,0.6)"/>
-				  <path d="M100 100 L100 120" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <rect x="50" y="130" width="100" height="30" rx="5" fill="rgba(255,255,255,0.8)" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
-				  <circle cx="65" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="85" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="105" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="125" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="145" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <path d="M140 70 L150 60 L160 70" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <path d="M140 80 L150 70 L160 80" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <path d="M140 90 L150 80 L160 90" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <rect x="30" y="40" width="40" height="20" rx="3" fill="rgba(255,255,255,0.6)"/>
-				</svg>
-			</div>
-			<h1>ZQ-DnsIp</h1>
-			<p>域名IP解析管理工具</p>
-		</div>
-		
-		<div class="content">
-			<div class="section">
-				<div class="section-header">Cloudflare 域名配置信息</div>
-				<div class="section-content">
-					${CF配置信息}
-				</div>
-			</div>
-			
-			<div class="section">
-				<div class="section-header">配置信息</div>
-				<div class="section-content">
-						${dohText}
-						${domainsTest}
-						${APIText}
-					</div>
-			</div>
-			
-			<div class="section">
-				<div class="section-header">整理结果</div>
-				<div class="section-content">
-					${ipv4Html}
-					${IPv6Text}
-					${banIPTest}
-				</div>
-			</div>
-			
-			${on == 1 ? `
-			<div class="stats">
-				<div class="stat-item">
-					<div class="stat-number success">${解析成功次数}</div>
-					<div>成功解析</div>
-				</div>
-				<div class="stat-item">
-					<div class="stat-number failure">${解析失败次数}</div>
-					<div>失败解析</div>
-				</div>
-			</div>
-			` : ''}
-			
-			<div class="section">
-				<div class="section-header">执行日志</div>
-				<div class="section-content log-section">
-					${logHtml}
-				</div>
-			</div>
-			
-			<div class="section">
-				<div class="section-header">操作</div>
-				<div class="section-content">
-					<div class="action-area">
-						<h4>手动执行</h4>
-						<p>点击下方按钮执行DNS解析任务</p>
-						<p class="token-info">${env.TOKEN ? '已设置Token，需要验证' : '未设置Token，直接执行'}</p>
-					<a href="/go" class="action-button">执行解析任务</a>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</body>
-</html>`;
-	
-	if(on == 1) await sendMessage(`ZQ-DnsIp:\n${CF域名} 解析完成! 成功: ${解析成功次数} 失败: ${解析失败次数}${tgmsg}`);
-	
-	// 返回HTML响应
-	return new Response(html, {
-		headers: {
-			'Content-Type': 'text/html; charset=utf-8'
-		}
-	});
+	return result;
 }
 
-async function log(text) {
-	// 获取当前的 UTC 时间
-	const now = new Date();
-	
-	// 将 UTC 时间转换为中国时间 (CST, UTC+8)
-	const offset = 8 * 60 * 60 * 1000; // 8 小时的毫秒数
-	const chinaTime = new Date(now.getTime() + offset);
-		
-	// 格式化为 yyyy-MM-dd HH:mm:ss
-	const formattedTime = formatDate(chinaTime);
-	执行日志 += formattedTime + ' ' + text + '\n' ;
-	console.log(text);
-}
-
-function formatDate(date) {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hours = String(date.getHours()).padStart(2, '0');
-	const minutes = String(date.getMinutes()).padStart(2, '0');
-	const seconds = String(date.getSeconds()).padStart(2, '0');
-	
-	return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
-async function ADD(envadd) {
-	var addtext = envadd.replace(/[ |"'\r\n]+/g, ',').replace(/,+/g, ','); // 将空格、双引号、单引号和换行符替换为逗号
-	if (addtext.charAt(0) == ',') addtext = addtext.slice(1);
-	if (addtext.charAt(addtext.length - 1) == ',') addtext = addtext.slice(0, addtext.length - 1);
-	const add = addtext.split(',');
-	return add;
-}
-
-// 密码输入界面函数
-async function 密码输入界面(env, errorMessage = '') {
-	const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>ZQ-DnsIp - 密码验证</title>
-		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='95' fill='rgba(255,255,255,0.2)' stroke='rgba(255,255,255,0.8)' stroke-width='2'/%3E%3Crect x='60' y='60' width='80' height='40' rx='5' fill='rgba(255,255,255,0.8)'/%3E%3Crect x='70' y='70' width='60' height='20' rx='2' fill='rgba(255,255,255,0.6)'/%3E%3Cpath d='M100 100 L100 120' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='50' y='130' width='100' height='30' rx='5' fill='rgba(255,255,255,0.8)' stroke='rgba(255,255,255,0.6)' stroke-width='2'/%3E%3Ccircle cx='65' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='85' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='105' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='125' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Ccircle cx='145' cy='145' r='3' fill='rgba(255,255,255,0.8)'/%3E%3Cpath d='M140 70 L150 60 L160 70' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 80 L150 70 L160 80' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M140 90 L150 80 L160 90' stroke='rgba(255,255,255,0.8)' stroke-width='2' stroke-linecap='round'/%3E%3Crect x='30' y='40' width='40' height='20' rx='3' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E" type="image/svg+xml">
-	<style>
-		* {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-		}
-		
-		body {
-			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			background-color: #f5f7fa;
-			color: #333;
-			line-height: 1.6;
-			padding: 20px;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			min-height: 100vh;
-		}
-		
-		.container {
-			max-width: 500px;
-			width: 100%;
-			background-color: #fff;
-			border-radius: 10px;
-			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-			overflow: hidden;
-			padding: 40px;
-		}
-		
-		.header {
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			color: white;
-			padding: 30px;
-			text-align: center;
-			margin: -40px -40px 40px -40px;
-		}
-		
-		.header .logo {
-			margin-bottom: 20px;
-			display: flex;
-			justify-content: center;
-		}
-		
-		.header h1 {
-			font-size: 2em;
-			margin-bottom: 10px;
-			font-weight: 600;
-		}
-		
-		.form-group {
-			margin-bottom: 20px;
-		}
-		
-		label {
-			display: block;
-			margin-bottom: 8px;
-			font-weight: 600;
-			color: #555;
-		}
-		
-		input[type="password"] {
-			width: 100%;
-			padding: 12px 15px;
-			border: 1px solid #e0e0e0;
-			border-radius: 5px;
-			font-size: 16px;
-			transition: border-color 0.3s ease;
-		}
-		
-		input[type="password"]:focus {
-			outline: none;
-			border-color: #667eea;
-			box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-		}
-		
-		.error-message {
-			background-color: #f8d7da;
-			color: #721c24;
-			padding: 10px 15px;
-			border-radius: 5px;
-			margin-bottom: 20px;
-			border: 1px solid #f5c6cb;
-		}
-		
-		.form-actions {
-			display: flex;
-			gap: 10px;
-			margin-top: 30px;
-		}
-		
-		.btn {
-			flex: 1;
-			padding: 12px;
-			border: none;
-			border-radius: 5px;
-			font-size: 16px;
-			font-weight: 600;
-			cursor: pointer;
-			transition: all 0.3s ease;
-		}
-		
-		.btn-primary {
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			color: white;
-		}
-		
-		.btn-primary:hover {
-			transform: translateY(-2px);
-			box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-		}
-		
-		.btn-secondary {
-			background-color: #f8f9fa;
-			color: #333;
-			border: 1px solid #e0e0e0;
-		}
-		
-		.btn-secondary:hover {
-			background-color: #e9ecef;
-		}
-		
-		.info-text {
-			margin-top: 20px;
-			padding: 15px;
-			background-color: #e3f2fd;
-			border-radius: 5px;
-			color: #1976d2;
-			font-size: 14px;
-		}
-		
-		@media (max-width: 768px) {
-			.container {
-				padding: 20px;
-				margin: 10px;
-			}
-			
-			.header {
-				margin: -20px -20px 20px -20px;
-				padding: 20px;
-			}
-			
-			.form-actions {
-				flex-direction: column;
-			}
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<div class="header">
-			<div class="logo">
-				<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 200 200">
-				  <circle cx="100" cy="100" r="95" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.8)" stroke-width="2"/>
-				  <rect x="60" y="60" width="80" height="40" rx="5" fill="rgba(255,255,255,0.8)"/>
-				  <rect x="70" y="70" width="60" height="20" rx="2" fill="rgba(255,255,255,0.6)"/>
-				  <path d="M100 100 L100 120" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <rect x="50" y="130" width="100" height="30" rx="5" fill="rgba(255,255,255,0.8)" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
-				  <circle cx="65" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="85" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="105" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="125" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <circle cx="145" cy="145" r="3" fill="rgba(255,255,255,0.8)"/>
-				  <path d="M140 70 L150 60 L160 70" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <path d="M140 80 L150 70 L160 80" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <path d="M140 90 L150 80 L160 90" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
-				  <rect x="30" y="40" width="40" height="20" rx="3" fill="rgba(255,255,255,0.6)"/>
-				</svg>
-			</div>
-			<h1>ZQ-DnsIp</h1>
-			<p>密码验证</p>
-		</div>
-		
-		${errorMessage ? `<div class="error-message">${errorMessage}</div>` : ''}
-		
-		<form action="/go" method="get">
-			<input type="hidden" name="action" value="execute">
-			
-			<div class="form-group">
-				<label for="token">请输入执行密码</label>
-				<input type="password" id="token" name="token" placeholder="输入TOKEN密码" required>
-			</div>
-			
-			<div class="form-actions">
-				<button type="submit" class="btn btn-primary">执行解析任务</button>
-				<a href="/" class="btn btn-secondary" style="display: inline-block; text-align: center; text-decoration: none;">返回首页</a>
-			</div>
-		</form>
-		
-		<div class="info-text">
-			<p><strong>提示：</strong></p>
-			<p>• 如果未设置TOKEN变量，直接点击执行即可</p>
-			<p>• 如果设置了TOKEN变量，需要输入正确的TOKEN密码</p>
-		</div>
-	</div>
-</body>
-</html>`;
-	
-	return new Response(html, {
-		headers: {
-			'Content-Type': 'text/html; charset=utf-8'
-		}
-	});
-}
-
-async function 批量删除域名(域名ID数组) {
+async function 批量删除域名(域名ID数组, zoneId, cfMail, cfKey, domain, log) {
 	const 批次大小 = 3; // 每批删除3个域名
 	const 批次间隔 = 2000; // 批次间隔2秒
-  
+
 	for (let i = 0; i < 域名ID数组.length; i += 批次大小) {
 		const 当前批次 = 域名ID数组.slice(i, i + 批次大小);
 		
 		// 并发删除当前批次的域名
-		const 删除promises = 当前批次.map(域名ID => 删除域名(域名ID));
+		const 删除promises = 当前批次.map(域名ID => 删除域名(域名ID, zoneId, cfMail, cfKey, domain, log));
 		const results = await Promise.allSettled(删除promises);
 		
 		results.forEach((result, index) => {
 			if (result.status === 'fulfilled') {
-			log(`${CF域名}:${当前批次[index]} 删除成功`);
+				log?.push(domain + ':' + 当前批次[index] + ' 删除成功');
 			} else {
-			log(`${CF域名}:${当前批次[index]} 删除失败: ${result.reason}`);
+				log?.push(domain + ':' + 当前批次[index] + ' 删除失败: ' + result.reason);
 			}
 		});
-	
+
 		// 如果还有下一批，则等待指定的间隔时间
 		if (i + 批次大小 < 域名ID数组.length) {
 			await new Promise(resolve => setTimeout(resolve, 批次间隔));
 		}
 	}
 }
-  
-// 删除单个域名的函数保持不变
-async function 删除域名(域名ID) {
-	const 删除域名_URL = `https://api.cloudflare.com/client/v4/zones/${CF区域ID}/dns_records/${域名ID}`;
+
+// 删除单个域名的函数
+async function 删除域名(域名ID, zoneId, cfMail, cfKey, domain, log) {
+	const 删除域名_URL = 'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records/' + 域名ID;
 	const response = await fetch(删除域名_URL, {
 		method: 'DELETE',
 		headers: {
-			'X-Auth-Email': CF邮箱,
-			'Authorization': `Bearer ${CFAPI令牌}`,
+			'X-Auth-Email': cfMail,
+			'Authorization': 'Bearer ' + cfKey,
 			'Content-Type': 'application/json'
 		}
 	});
 	const data = await response.json();
 	console.log(JSON.stringify(data, null, 2));
 	if (!data.success) {
-		throw new Error(`删除失败: ${JSON.stringify(data.errors)}`);
+		throw new Error('删除失败: ' + JSON.stringify(data.errors));
 	}
 }
 
-async function 批量添加解析(解析记录列表) {
+async function 批量添加解析(解析记录列表, zoneId, cfMail, cfKey, domain, log) {
+	let 解析成功次数 = 0, 解析失败次数 = 0;
 	const 批次大小 = 3; // 每批添加3个解析记录
 	const 批次间隔 = 2000; // 批次间隔2秒
-  
+
 	for (let i = 0; i < 解析记录列表.length; i += 批次大小) {
 		const 当前批次 = 解析记录列表.slice(i, i + 批次大小);
 		
 		// 并发发送当前批次的请求
-		await Promise.all(当前批次.map(记录 => 添加解析(记录.type, 记录.content)));
+		await Promise.all(当前批次.map(记录 => 添加解析(记录.type, 记录.content, zoneId, cfMail, cfKey, domain, log).then(success => {
+			if (success) 解析成功次数++;
+			else 解析失败次数++;
+		})));
 		
 		// 如果还有下一批，则等待指定的间隔时间
 		if (i + 批次大小 < 解析记录列表.length) {
 			await new Promise(resolve => setTimeout(resolve, 批次间隔));
 		}
 	}
+
+	log?.push(domain + ' 更新完成: 成功' + 解析成功次数 + ', 失败' + 解析失败次数);
+	return { success: 解析失败次数 === 0, successCount: 解析成功次数, failCount: 解析失败次数 };
 }
-  
-// 修改添加解析函数，返回一个 Promise
-async function 添加解析(A, IP) {
-	const 添加解析_URL = `https://api.cloudflare.com/client/v4/zones/${CF区域ID}/dns_records`;
+
+// 添加解析函数
+async function 添加解析(A, IP, zoneId, cfMail, cfKey, domain, log) {
+	const 添加解析_URL = 'https://api.cloudflare.com/client/v4/zones/' + zoneId + '/dns_records';
 	try {
 		const response = await fetch(添加解析_URL, {
 			method: 'POST',
 			headers: {
-			'X-Auth-Email': CF邮箱,
-			'Authorization': `Bearer ${CFAPI令牌}`,
+			'X-Auth-Email': cfMail,
+			'Authorization': 'Bearer ' + cfKey,
 			'Content-Type': 'application/json',
 			},
 			body: JSON.stringify({
 			type: A,
-			name: CF域名,
+			name: domain,
 			content: IP,
 			ttl: 60,
 			proxied: false
@@ -1134,17 +575,27 @@ async function 添加解析(A, IP) {
 		const data = await response.json();
 		console.log(JSON.stringify(data, null, 2));
 		if (data.success) {
-			解析成功次数 += 1;
-			tgmsg += `\n${A}记录: ${IP}`
-			log(`${CF域名} 成功 ${A}记录: ${IP}`);
+			log?.push(domain + ' 成功 ' + A + '记录: ' + IP);
+			return true;
 		} else {
-			解析失败次数 += 1;
-			tgmsg += `\n失败: ${IP}`
-			log(`${CF域名} 失败 ${A}记录: ${IP}`);
+			log?.push(domain + ' 失败 ' + A + '记录: ' + IP);
+			return false;
 		}
-	} catch (error) {
-		解析失败次数 += 1;
-		tgmsg += `\n失败: ${IP}`
-		log(`${CF域名} 失败 ${A}记录: ${IP}`);
+	} catch (e) {
+		log?.push(domain + ' 失败 ' + A + '记录: ' + IP);
+		return false;
 	}
+}
+
+async function sendTGMessage(token, chatId, text) {
+	const url = 'https://api.telegram.org/bot' + token + '/sendMessage';
+	await fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			chat_id: chatId,
+			text: text,
+			parse_mode: 'HTML'
+		})
+	});
 }
