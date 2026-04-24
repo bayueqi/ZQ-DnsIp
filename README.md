@@ -4,39 +4,42 @@
 ## 部署方式
 
 - **Workers** 部署：复制 [_worker.js](https://github.com/cmliu/CF-Workers-DD2D/blob/main/_worker.js) 代码，`保存并部署`即可
+- **需要配置 KV 命名空间**：
+  1. 在 Cloudflare Dashboard 创建 KV 命名空间
+  2. 在 Worker 设置 → 变量 → KV 命名空间绑定中，添加绑定，变量名填 `DnsIp`
 
 ## 如何使用？
-例如 您的Workers项目域名为：`dd2d.fxxk.workers.dev`；
 
-1. 如你想将`cdn.xn--b6gac.eu.org`和`my-telegram-is-herocore.onecf.eu.org`内的IP解析到你的`ddns.google.com`下，你可以设置如下变量
-    - 变量名`DOMAIN`，值为`cdn.xn--b6gac.eu.org,my-telegram-is-herocore.onecf.eu.org`，支持多元素之间使用`,`或**换行**作间隔；
+### 首次访问
+1. 部署完成后，访问你的 Worker 域名
+2. 系统会显示设置密码页面，请输入你自己想要的登录密码
+3. 设置好密码后会跳转到登录页面
 
-2. 如你想将`https://ipdb.030101.xyz/api/bestproxy.txt`列表内的IP解析到你的`ddns.google.com`下，你可以设置如下变量
-    - 变量名`IPAPI`，值为`https://ipdb.030101.xyz/api/bestproxy.txt`，支持多元素之间使用`,`或**换行**作间隔；
+### 登录
+- 在登录页面输入你设置的密码
+- 登录成功后会进入管理面板
 
-### 手动执行
-- 访问`https://dd2d.fxxk.workers.dev`即可**查看DD2D配置信息**；
-- 访问`https://dd2d.fxxk.workers.dev/go`即可打开**密码输入界面**；
-- 输入正确的`TOKEN`密码后点击执行按钮，才会执行DD2D域名解析任务。
+### 管理面板功能
+
+#### Telegram 通知配置
+- **TG Bot Token**：你的 Telegram 机器人 Token(可选)
+- **TG Chat ID**：接收通知的 Chat ID(可选)
+
+#### 域名配置
+可以添加多个域名配置，每个域名独立设置：
+- **CF 登录邮箱**：你的 Cloudflare 登录邮箱
+- **CF 待解析域名**：要更新的域名（如 ddns.google.com）
+- **CF Zone ID**：域名的区域 ID
+- **CF API Token**：Cloudflare API 令牌(要有dns编辑权限)
+- **DoH URL**：DNS over HTTPS 地址（可选，默认 https://cloudflare-dns.com/dns-query）
+- **解析域名**：要获取 IP 的域名列表（可选，多个用逗号或换行分隔）
+- **IPv4**：直接指定的 IPv4 地址（可选，多个用逗号或换行分隔）
+- **IPv6**：直接指定的 IPv6 地址（可选，多个用逗号或换行分隔）
+- **封禁IP**：不要解析的 IP 地址（可选，多个用逗号或换行分隔）
+- **IP API**：从 API 获取 IP 的接口地址（可选，多个用逗号或换行分隔）
+
 
 ### 定时任务
-- 设置添加`Cron 触发器`即可；
-- 例如`0 */8 * * *`为**每8小时执行一次**，更多定时任务Cron写法请自行GPT。
-
-## 变量说明
-| 变量名 | 示例 | 必填 | 备注 |
-|--------|---------|-|-----|
-| CFMAIL  | `admin@gmail.com` |√| Cloudflare 登录邮箱 |
-| CFDOMAIN  | `ddns.google.com` |√| Cloudflare 待解析域名 |
-| CFZONEID   | `6f0b34f36efb4bdaf5e22d68ac8e5c96` |√| Cloudflare 区域ID | 
-| CFKEY  | `tGb4_4f5e23efb4d68ac28exRnJTfbdaC6-IWocs` |√| Cloudflare API令牌 |
-| TOKEN | `admin` |×| **手动执行**时验证token，token不正确将不会执行DD2D |
-| DOH | `https://cloudflare-dns.com/dns-query` |×| DoH（DNS over HTTPS）URL |
-| DOMAIN | `cdn.xn--b6gac.eu.org` |×| 获取待解析至`待解析域名`IP的域名(支持多元素之间`,`或 换行 作间隔) |
-| IPV4 | `8.8.8.8` |×| 待解析至`待解析域名`IPv4(支持多元素之间`,`或 换行 作间隔) |
-| IPV6 | `2406:8dc0:6004:7019:ca7a:65a0:d3d7:1467` |×| 待解析至`待解析域名`IPv6(支持多元素之间`,`或 换行 作间隔) |
-| BANIP | `1.1.1.1,2406:8dc0:6004:7019:ca7a:65a0:d3d7:1467` |×| 拉黑IP将不会解析至`待解析域名`(支持多元素之间`,`或 换行 作间隔) |
-| IPAPI | `https://ipdb.030101.xyz/api/bestproxy.txt` |×| 通过API获取待解析至`待解析域名`IP的接口(支持多元素之间`,`或 换行 作间隔) |
-| TGTOKEN | `6894123456:XXXXXXXXXX0qExVsBPUhHDAbXXX` |×| 发送TG通知的机器人token | 
-| TGID | `6946912345` |×| 接收TG通知的账户数字ID | 
-
+- 在 Worker 设置 → 触发器 → Cron 触发器中添加
+- 例如 `0 */8 * * *` 为每 8 小时执行一次
+- 定时任务会自动读取保存的配置并执行
