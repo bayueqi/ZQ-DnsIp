@@ -148,30 +148,646 @@ async function handleAPI(request, env, pathname) {
 
 // ==================== 页面渲染 ====================
 
+const AUTH_STYLES = `
+		:root {
+			--bg: #f5f7fb;
+			--line: #e4eaf3;
+			--text: #0f172a;
+			--muted: #64748b;
+			--brand: #2563eb;
+			--brand-dark: #1d4ed8;
+		}
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+			background: radial-gradient(900px 480px at 50% -8%, #dbeafe 0%, rgba(219, 234, 254, 0) 62%), var(--bg);
+			color: var(--text);
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			-webkit-font-smoothing: antialiased;
+		}
+		.wrap { width: 100%; max-width: 410px; }
+		.brand {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 9px;
+			font-size: 15px;
+			font-weight: 700;
+			color: #1e293b;
+			margin-bottom: 18px;
+		}
+		.card {
+			background: #fff;
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			padding: 30px;
+			box-shadow: 0 24px 60px -32px rgba(15, 23, 42, .35);
+		}
+		h1 { font-size: 21px; margin-bottom: 7px; }
+		.sub { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-bottom: 22px; }
+		.notice {
+			background: #f1f6ff;
+			border: 1px solid #dbe7ff;
+			color: #1e40af;
+			font-size: 13px;
+			line-height: 1.6;
+			padding: 11px 13px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+		}
+		.err {
+			background: #fef2f2;
+			border: 1px solid #fecaca;
+			color: #b91c1c;
+			font-size: 13px;
+			padding: 11px 13px;
+			border-radius: 10px;
+			margin-bottom: 20px;
+		}
+		label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; }
+		input {
+			width: 100%;
+			height: 44px;
+			padding: 0 14px;
+			border: 1px solid #dbe3ef;
+			border-radius: 10px;
+			font-size: 14.5px;
+			font-family: inherit;
+			color: var(--text);
+			background: #fcfdff;
+			transition: border-color .15s, box-shadow .15s, background .15s;
+		}
+		input::placeholder { color: #9aa7bb; }
+		input:focus {
+			outline: none;
+			background: #fff;
+			border-color: var(--brand);
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, .16);
+		}
+		.btn {
+			width: 100%;
+			height: 44px;
+			margin-top: 22px;
+			border: none;
+			border-radius: 10px;
+			background: var(--brand);
+			color: #fff;
+			font-size: 14.5px;
+			font-weight: 600;
+			font-family: inherit;
+			cursor: pointer;
+			transition: background .15s, transform .1s;
+		}
+		.btn:hover { background: var(--brand-dark); }
+		.btn:active { transform: translateY(1px); }
+		.foot { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 18px; }
+`;
+
+const DASH_STYLES = `
+		:root {
+			--bg: #f4f7fc;
+			--line: #e4eaf3;
+			--text: #0f172a;
+			--muted: #64748b;
+			--brand: #2563eb;
+			--brand-dark: #1d4ed8;
+		}
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+			background: var(--bg);
+			color: var(--text);
+			-webkit-font-smoothing: antialiased;
+		}
+		.top {
+			position: sticky;
+			top: 0;
+			z-index: 20;
+			background: rgba(255, 255, 255, .9);
+			backdrop-filter: blur(10px);
+			border-bottom: 1px solid var(--line);
+		}
+		.top-inner {
+			max-width: 1080px;
+			margin: 0 auto;
+			padding: 13px 24px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+		.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; }
+		.tag {
+			font-size: 11.5px;
+			font-weight: 600;
+			color: #3b82f6;
+			background: #eff6ff;
+			border: 1px solid #dbeafe;
+			padding: 2px 8px;
+			border-radius: 999px;
+		}
+		.container { max-width: 1080px; margin: 24px auto 64px; padding: 0 24px; }
+		.card {
+			background: #fff;
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 22px 24px;
+			margin-bottom: 16px;
+			box-shadow: 0 14px 34px -28px rgba(15, 23, 42, .4);
+		}
+		.card-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 18px;
+		}
+		.card-head h2 { font-size: 15.5px; font-weight: 700; }
+		.hint { font-size: 12.5px; color: var(--muted); }
+		.grid { display: grid; gap: 14px 16px; }
+		.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.field label { display: block; font-size: 12.5px; font-weight: 600; color: #475569; margin-bottom: 7px; }
+		input, textarea {
+			width: 100%;
+			padding: 10px 12px;
+			border: 1px solid #dbe3ef;
+			border-radius: 9px;
+			font-size: 13.5px;
+			font-family: inherit;
+			color: var(--text);
+			background: #fcfdff;
+			transition: border-color .15s, box-shadow .15s, background .15s;
+		}
+		input::placeholder, textarea::placeholder { color: #9aa7bb; }
+		input:focus, textarea:focus {
+			outline: none;
+			background: #fff;
+			border-color: var(--brand);
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+		}
+		textarea { min-height: 74px; resize: vertical; line-height: 1.65; }
+		.btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			height: 38px;
+			padding: 0 16px;
+			border: 1px solid transparent;
+			border-radius: 9px;
+			font-size: 13.5px;
+			font-weight: 600;
+			font-family: inherit;
+			cursor: pointer;
+			transition: background .15s, border-color .15s, color .15s, transform .1s;
+		}
+		.btn:active { transform: translateY(1px); }
+		.btn-primary { background: var(--brand); color: #fff; }
+		.btn-primary:hover { background: var(--brand-dark); }
+		.btn-ghost { background: #fff; color: #334155; border-color: #dbe3ef; }
+		.btn-ghost:hover { background: #f8fafc; border-color: #b9c6da; }
+		.btn-danger { background: #fff; color: #dc2626; border-color: #fecaca; }
+		.btn-danger:hover { background: #fef2f2; }
+		.btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: 8px; }
+		.btn-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+		.domain-item {
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			margin-bottom: 14px;
+			overflow: hidden;
+		}
+		.domain-item:last-child { margin-bottom: 0; }
+		summary.domain-header {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 14px 18px;
+			cursor: pointer;
+			user-select: none;
+			list-style: none;
+			transition: background .15s;
+		}
+		summary.domain-header:hover { background: #f8fbff; }
+		summary.domain-header::-webkit-details-marker { display: none; }
+		details[open] > summary.domain-header { border-bottom: 1px dashed var(--line); }
+		.domain-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+		.chev {
+			flex: 0 0 auto;
+			width: 7px;
+			height: 7px;
+			margin-top: -4px;
+			border-right: 1.7px solid #94a3b8;
+			border-bottom: 1.7px solid #94a3b8;
+			transform: rotate(45deg);
+			transition: transform .2s, margin-top .2s;
+		}
+		details[open] > summary .chev { transform: rotate(-135deg); margin-top: 4px; }
+		.domain-body { padding: 16px 18px 18px; }
+		.domain-title { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 14px; font-weight: 600; }
+		.badge {
+			flex: none;
+			width: 22px;
+			height: 22px;
+			border-radius: 7px;
+			background: #eff6ff;
+			color: #2563eb;
+			font-size: 11.5px;
+			font-weight: 700;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.domain-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.fieldset + .fieldset { margin-top: 16px; }
+		.fieldset-title {
+			font-size: 11.5px;
+			font-weight: 700;
+			letter-spacing: .04em;
+			color: #94a3b8;
+			margin-bottom: 10px;
+		}
+		.empty { text-align: center; font-size: 13px; color: #94a3b8; padding: 26px 0 12px; }
+		.log {
+			margin-top: 16px;
+			background: #0f172a;
+			color: #cbd5e1;
+			border-radius: 11px;
+			padding: 14px 16px;
+			font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+			font-size: 12.5px;
+			line-height: 1.75;
+			max-height: 320px;
+			overflow: auto;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.hidden { display: none !important; }
+		.alert { padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; border: 1px solid transparent; }
+		.alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+		.alert-danger { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+		.modal {
+			display: none;
+			position: fixed;
+			inset: 0;
+			background: rgba(15, 23, 42, .45);
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+			z-index: 100;
+		}
+		.modal.show { display: flex; }
+		.modal-content {
+			background: #fff;
+			border-radius: 14px;
+			padding: 24px;
+			width: 100%;
+			max-width: 400px;
+			box-shadow: 0 30px 60px -20px rgba(15, 23, 42, .45);
+		}
+		.modal-content h2 { font-size: 16px; margin-bottom: 18px; }
+		@media (max-width: 720px) {
+			.grid-2 { grid-template-columns: 1fr; }
+			.top-inner { padding: 12px 14px; }
+			.container { padding: 0 14px; margin-top: 16px; }
+			.card { padding: 18px 16px; }
+		}
+`;
+
+function authPage(options) {
+	const { title, subtitle, notice, error, fieldLabel, placeholder, action, submitText, isPassword } = options;
+	const parts = [
+		'<!DOCTYPE html>',
+		'<html lang="zh-CN">',
+		'<head>',
+		'\t<meta charset="UTF-8">',
+		'\t<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+		'\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">',
+		'\t<title>ZQ-DnsIp - ' + title + '</title>',
+		'\t<style>' + AUTH_STYLES + '\t</style>',
+		'</head>',
+		'<body>',
+		'\t<div class="wrap">',
+		'\t\t<div class="brand">ZQ-DnsIp</div>',
+		'\t\t<div class="card">',
+		'\t\t\t<h1>' + title + '</h1>',
+		'\t\t\t<p class="sub">' + subtitle + '</p>',
+		error ? '\t\t\t<div class="err">' + error + '</div>' : '',
+		notice ? '\t\t\t<div class="notice">' + notice + '</div>' : '',
+		'\t\t\t<form method="post" action="' + action + '">',
+		'\t\t\t\t<label>' + fieldLabel + '</label>',
+		'\t\t\t\t<input type="' + (isPassword ? 'password' : 'text') + '" name="token" placeholder="' + placeholder + '" required autocomplete="' + (isPassword ? 'current-password' : 'off') + '">',
+		'\t\t\t\t<button type="submit" class="btn">' + submitText + '</button>',
+		'\t\t\t</form>',
+		'\t\t</div>',
+		'\t\t<p class="foot">Cloudflare Worker · 域名 IP 自动解析</p>',
+		'\t</div>',
+		'</body>',
+		'</html>'
+	];
+	return new Response(parts.filter(Boolean).join('\n'), {
+		headers: { 'Content-Type': 'text/html; charset=utf-8' }
+	});
+}
+
 function showSetupPage(error = '') {
-	let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 设置密码</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tmin-height: 100vh;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tpadding: 20px;\n\t\t}\n\t\t.container {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 15px;\n\t\t\tpadding: 40px;\n\t\t\tmax-width: 500px;\n\t\t\twidth: 100%;\n\t\t\tbox-shadow: 0 10px 40px rgba(0,0,0,0.2);\n\t\t}\n\t\th1 { color: #333; margin-bottom: 20px; text-align: center; }\n\t\t.info {\n\t\t\tbackground: #d4edda;\n\t\t\tcolor: #155724;\n\t\t\tpadding: 15px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #c3e6cb;\n\t\t}\n\t\t.form-group { margin-bottom: 20px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; }\n\t\tinput[type="password"], input[type="text"] {\n\t\t\twidth: 100%;\n\t\t\tpadding: 12px 15px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t}\n\t\tinput:focus {\n\t\t\toutline: none;\n\t\t\tborder-color: #667eea;\n\t\t}\n\t\t.error {\n\t\t\tbackground: #f8d7da;\n\t\t\tcolor: #721c24;\n\t\t\tpadding: 10px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #f5c6cb;\n\t\t}\n\t\t.btn {\n\t\t\twidth: 100%;\n\t\t\tpadding: 15px;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tborder: none;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t\tfont-weight: bold;\n\t\t\tcursor: pointer;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="container">\n\t\t<h1>🎉 欢迎使用 ZQ-DnsIp</h1>\n\t\t<div class="info">\n\t\t\t<p><strong>首次使用，请设置你的登录密码</strong></p>\n\t\t</div>';
-	if (error) {
-		html += '<div class="error">' + error + '</div>';
-	}
-	html += '\n\t\t<form method="post" action="/setup">\n\t\t\t<div class="form-group">\n\t\t\t\t<label>设置登录密码</label>\n\t\t\t\t<input type="text" name="token" placeholder="请输入你想设置的密码" required autocomplete="off">\n\t\t\t</div>\n\t\t\t<button type="submit" class="btn">保存密码</button>\n\t\t</form>\n\t</div>\n</body>\n</html>';
-	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+	return authPage({
+		title: '设置登录密码',
+		subtitle: '首次使用，为管理面板设置一个登录密码。',
+		notice: '密码保存在 KV 中，请自行妥善保管。',
+		error: error,
+		fieldLabel: '登录密码',
+		placeholder: '请输入你想设置的密码',
+		action: '/setup',
+		submitText: '保存并进入',
+		isPassword: false
+	});
 }
 
 function showLoginPage(error = '') {
-	let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 登录</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tmin-height: 100vh;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tpadding: 20px;\n\t\t}\n\t\t.container {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 15px;\n\t\t\tpadding: 40px;\n\t\t\tmax-width: 400px;\n\t\t\twidth: 100%;\n\t\t\tbox-shadow: 0 10px 40px rgba(0,0,0,0.2);\n\t\t}\n\t\th1 { color: #333; margin-bottom: 30px; text-align: center; }\n\t\t.form-group { margin-bottom: 20px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; }\n\t\tinput[type="password"] {\n\t\t\twidth: 100%;\n\t\t\tpadding: 12px 15px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t}\n\t\tinput[type="password"]:focus {\n\t\t\toutline: none;\n\t\t\tborder-color: #667eea;\n\t\t}\n\t\t.error {\n\t\t\tbackground: #f8d7da;\n\t\t\tcolor: #721c24;\n\t\t\tpadding: 10px;\n\t\t\tborder-radius: 8px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tborder: 1px solid #f5c6cb;\n\t\t}\n\t\t.btn {\n\t\t\twidth: 100%;\n\t\t\tpadding: 15px;\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tborder: none;\n\t\t\tborder-radius: 8px;\n\t\t\tfont-size: 16px;\n\t\t\tfont-weight: bold;\n\t\t\tcursor: pointer;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="container">\n\t\t<h1>🔐 登录 ZQ-DnsIp</h1>';
-	if (error) {
-		html += '<div class="error">' + error + '</div>';
-	}
-	html += '\n\t\t<form method="post" action="/login">\n\t\t\t<div class="form-group">\n\t\t\t\t<label>请输入密码</label>\n\t\t\t\t<input type="password" name="token" placeholder="输入你的登录密码" required>\n\t\t\t</div>\n\t\t\t<button type="submit" class="btn">登录</button>\n\t\t</form>\n\t</div>\n</body>\n</html>';
-	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+	return authPage({
+		title: '登录管理面板',
+		subtitle: '输入密码以继续。',
+		notice: '',
+		error: error,
+		fieldLabel: '密码',
+		placeholder: '输入你的登录密码',
+		action: '/login',
+		submitText: '登录',
+		isPassword: true
+	});
 }
 
 function showDashboard(config, token) {
-	const html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n\t<meta charset="UTF-8">\n\t<meta name="viewport" content="width=device-width, initial-scale=1.0">\n\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">\n\t<title>ZQ-DnsIp - 管理面板</title>\n\t<style>\n\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\tbody {\n\t\t\tfont-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;\n\t\t\tbackground: #f5f7fa;\n\t\t\tcolor: #333;\n\t\t}\n\t\t.header {\n\t\t\tbackground: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n\t\t\tcolor: white;\n\t\t\tpadding: 20px 30px;\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: space-between;\n\t\t\talign-items: center;\n\t\t}\n\t\t.container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }\n\t\t.card {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 10px;\n\t\t\tpadding: 25px;\n\t\t\tmargin-bottom: 20px;\n\t\t\tbox-shadow: 0 2px 10px rgba(0,0,0,0.1);\n\t\t}\n\t\t.card h2 { color: #667eea; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }\n\t\t.form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }\n\t\t.form-group { margin-bottom: 15px; }\n\t\tlabel { display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 14px; }\n\t\tinput[type="text"], textarea, select {\n\t\t\twidth: 100%;\n\t\t\tpadding: 10px 12px;\n\t\t\tborder: 2px solid #e0e0e0;\n\t\t\tborder-radius: 6px;\n\t\t\tfont-size: 14px;\n\t\t}\n\t\ttextarea { min-height: 80px; resize: vertical; }\n\t\t.domain-item {\n\t\t\tbackground: #f8f9fa;\n\t\t\tborder: 1px solid #e0e0e0;\n\t\t\tborder-radius: 8px;\n\t\t\tpadding: 20px;\n\t\t\tmargin-bottom: 15px;\n\t\t}\n\t\t.domain-header {\n\t\t\tdisplay: flex;\n\t\t\tjustify-content: space-between;\n\t\t\talign-items: center;\n\t\t\tmargin-bottom: 15px;\n\t\t\tpadding-bottom: 10px;\n\t\t\tborder-bottom: 1px solid #e0e0e0;\n\t\t}\n\t\t.btn {\n\t\t\tpadding: 10px 20px;\n\t\t\tborder: none;\n\t\t\tborder-radius: 6px;\n\t\t\tfont-size: 14px;\n\t\t\tfont-weight: 600;\n\t\t\tcursor: pointer;\n\t\t\ttransition: all 0.3s;\n\t\t}\n\t\t.btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }\n\t\t.btn-success { background: #28a745; color: white; }\n\t\t.btn-danger { background: #dc3545; color: white; }\n\t\t.btn-secondary { background: #6c757d; color: white; }\n\t\t.btn:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }\n\t\t.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }\n\t\t.log-area {\n\t\t\tbackground: #1e1e1e;\n\t\t\tcolor: #d4d4d4;\n\t\t\tfont-family: "Courier New", monospace;\n\t\t\tpadding: 15px;\n\t\t\tborder-radius: 8px;\n\t\t\tmax-height: 300px;\n\t\t\toverflow-y: auto;\n\t\t\tmargin-top: 15px;\n\t\t}\n\t\t.hidden { display: none; }\n\t\t.alert { padding: 15px; border-radius: 8px; margin-bottom: 15px; }\n\t\t.alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }\n\t\t.alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }\n\t\t.modal {\n\t\t\tdisplay: none;\n\t\t\tposition: fixed;\n\t\t\ttop: 0;\n\t\t\tleft: 0;\n\t\t\twidth: 100%;\n\t\t\theight: 100%;\n\t\t\tbackground: rgba(0,0,0,0.5);\n\t\t\tjustify-content: center;\n\t\t\talign-items: center;\n\t\t\tz-index: 1000;\n\t\t}\n\t\t.modal.show { display: flex; }\n\t\t.modal-content {\n\t\t\tbackground: white;\n\t\t\tborder-radius: 10px;\n\t\t\tpadding: 30px;\n\t\t\tmax-width: 400px;\n\t\t\twidth: 90%;\n\t\t}\n\t</style>\n</head>\n<body>\n\t<div class="header">\n\t\t<h1>🎛️ ZQ-DnsIp 管理面板</h1>\n\t\t<button class="btn btn-secondary" onclick="showChangePasswordModal()">修改密码</button>\n\t</div>\n\t\n\t<div class="container">\n\t\t<div id="alert" class="hidden"></div>\n\t\t\n\t\t<!-- Telegram配置 -->\n\t\t<div class="card">\n\t\t\t<h2>📱 Telegram 通知配置</h2>\n\t\t\t<div class="form-row">\n\t\t\t\t<div class="form-group">\n\t\t\t\t\t<label>TG Bot Token</label>\n\t\t\t\t\t<input type="text" id="tgToken" placeholder="例如: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">\n\t\t\t\t</div>\n\t\t\t\t<div class="form-group">\n\t\t\t\t\t<label>TG Chat ID</label>\n\t\t\t\t\t<input type="text" id="tgId" placeholder="例如: 123456789">\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t</div>\n\t\t\n\t\t<!-- 域名配置列表 -->\n\t\t<div class="card">\n\t\t\t<h2>🌐 域名配置</h2>\n\t\t\t<div id="domainList"></div>\n\t\t\t<button class="btn btn-primary" onclick="addDomain()">+ 添加域名</button>\n\t\t</div>\n\t\t\n\t\t<!-- 操作按钮 -->\n\t\t<div class="card">\n\t\t\t<div class="btn-group">\n\t\t\t\t<button class="btn btn-success" onclick="saveConfig()">💾 保存配置</button>\n\t\t\t\t<button class="btn btn-primary" onclick="executeTask()">▶️ 立即执行</button>\n\t\t\t</div>\n\t\t\t<div id="logArea" class="log-area hidden"></div>\n\t\t</div>\n\t</div>\n\n\t<!-- 修改密码模态框 -->\n\t<div id="passwordModal" class="modal">\n\t\t<div class="modal-content">\n\t\t\t<h2>修改登录密码</h2>\n\t\t\t<div class="form-group">\n\t\t\t\t<label>新密码</label>\n\t\t\t\t<input type="text" id="newPassword" placeholder="输入新密码">\n\t\t\t</div>\n\t\t\t<div class="btn-group">\n\t\t\t\t<button class="btn btn-primary" onclick="changePassword()">确认修改</button>\n\t\t\t\t<button class="btn btn-secondary" onclick="closePasswordModal()">取消</button>\n\t\t\t</div>\n\t\t</div>\n\t</div>\n\n<script>\n\tlet config = ' + JSON.stringify(config) + ';\n\t\n\tfunction showAlert(message, type = "success") {\n\t\tconst alert = document.getElementById("alert");\n\t\talert.textContent = message;\n\t\talert.className = "alert alert-" + type;\n\t\tsetTimeout(() => alert.className = "hidden", 3000);\n\t}\n\t\n\tfunction renderDomains() {\n\t\tconst container = document.getElementById("domainList");\n\t\tcontainer.innerHTML = config.domains.map((domain, index) => `\n\t\t\t<div class="domain-item" data-index="${index}">\n\t\t\t\t<div class="domain-header">\n\t\t\t\t\t<strong>域名: ${domain.cfDomain || "未命名"}</strong>\n\t\t\t\t\t<button class="btn btn-danger" onclick="removeDomain(${index})">删除</button>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF 登录邮箱</label>\n\t\t\t\t\t\t<input type="text" data-field="cfMail" placeholder="admin@gmail.com" value="${domain.cfMail || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF 待解析域名</label>\n\t\t\t\t\t\t<input type="text" data-field="cfDomain" placeholder="ddns.google.com" value="${domain.cfDomain || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF Zone ID</label>\n\t\t\t\t\t\t<input type="text" data-field="cfZoneId" placeholder="区域ID" value="${domain.cfZoneId || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>CF API Token</label>\n\t\t\t\t\t\t<input type="text" data-field="cfKey" placeholder="API令牌" value="${domain.cfKey || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>DoH URL</label>\n\t\t\t\t\t\t<input type="text" data-field="doh" placeholder="默认https://cloudflare-dns.com/dns-query" value="${domain.doh || ""}">\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>解析域名 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="domains" placeholder="cdn.example.com,cdn2.example.com">${domain.domains || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IPv4 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipv4" placeholder="8.8.8.8,1.1.1.1">${domain.ipv4 || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IPv6 (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipv6" placeholder="2406:8dc0:...">${domain.ipv6 || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class="form-row">\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>封禁IP (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="banIp" placeholder="1.1.1.1">${domain.banIp || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class="form-group">\n\t\t\t\t\t\t<label>IP API (多个用逗号或换行分隔)</label>\n\t\t\t\t\t\t<textarea data-field="ipApi" placeholder="https://example.com/api/ip">${domain.ipApi || ""}</textarea>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t`).join("");\n\t\t\n\t\tdocument.getElementById("tgToken").value = config.tgToken || "";\n\t\tdocument.getElementById("tgId").value = config.tgId || "";\n\t}\n\t\n\tfunction collectConfig() {\n\t\tconst domains = [];\n\t\tdocument.querySelectorAll(".domain-item").forEach(item => {\n\t\t\tconst domain = {};\n\t\t\titem.querySelectorAll("[data-field]").forEach(input => {\n\t\t\t\tdomain[input.dataset.field] = input.value;\n\t\t\t});\n\t\t\tdomains.push(domain);\n\t\t});\n\t\treturn {\n\t\t\ttgToken: document.getElementById("tgToken").value,\n\t\t\ttgId: document.getElementById("tgId").value,\n\t\t\tdomains\n\t\t};\n\t}\n\t\n\tfunction addDomain() {\n\t\t// 先收集当前配置，避免已输入的值丢失\n\t\tconfig = collectConfig();\n\t\tconfig.domains.push({});\n\t\trenderDomains();\n\t}\n\t\n\tfunction removeDomain(index) {\n\t\t// 先收集当前配置，避免已输入的值丢失\n\t\tconfig = collectConfig();\n\t\tconfig.domains.splice(index, 1);\n\t\trenderDomains();\n\t}\n\t\n\tasync function saveConfig() {\n\t\tconfig = collectConfig();\n\t\tconst response = await fetch("/api/save-config", {\n\t\t\tmethod: "POST",\n\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\tbody: JSON.stringify(config)\n\t\t});\n\t\tconst result = await response.json();\n\t\tif (result.success) showAlert("配置保存成功！");\n\t\telse showAlert("保存失败: " + result.error, "danger");\n\t}\n\t\n\tfunction showChangePasswordModal() {\n\t\tdocument.getElementById("passwordModal").classList.add("show");\n\t}\n\t\n\tfunction closePasswordModal() {\n\t\tdocument.getElementById("passwordModal").classList.remove("show");\n\t}\n\t\n\tasync function changePassword() {\n\t\tconst newPassword = document.getElementById("newPassword").value;\n\t\tif (!newPassword) {\n\t\t\tshowAlert("密码不能为空", "danger");\n\t\t\treturn;\n\t\t}\n\t\tconst response = await fetch("/api/change-password", {\n\t\t\tmethod: "POST",\n\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\tbody: JSON.stringify({ newPassword })\n\t\t});\n\t\tconst result = await response.json();\n\t\tif (result.success) {\n\t\t\tshowAlert("密码修改成功！请重新登录");\n\t\t\tsetTimeout(() => {\n\t\t\t\tdocument.location.href = "/login";\n\t\t\t}, 1500);\n\t\t} else {\n\t\t\tshowAlert("密码修改失败: " + result.error, "danger");\n\t\t}\n\t}\n\t\n\tasync function executeTask() {\n\t\tconst logArea = document.getElementById("logArea");\n\t\tlogArea.classList.remove("hidden");\n\t\tlogArea.innerHTML = "执行中...\\n";\n\t\t\n\t\ttry {\n\t\t\tconst configData = collectConfig();\n\t\t\tconst response = await fetch("/execute", {\n\t\t\t\tmethod: "POST",\n\t\t\t\theaders: { "Content-Type": "application/json" },\n\t\t\t\tbody: JSON.stringify(configData)\n\t\t\t});\n\t\t\tconst result = await response.json();\n\t\t\tlogArea.innerHTML = result.log || "执行完成";\n\t\t} catch (e) {\n\t\t\tlogArea.innerHTML = "错误: " + e.message;\n\t\t}\n\t}\n\t\n\trenderDomains();\n</script>\n</body>\n</html>';
-	return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+	config = config || {};
+	config.domains = config.domains || [];
+	const parts = [
+		'<!DOCTYPE html>',
+		'<html lang="zh-CN">',
+		'<head>',
+		'\t<meta charset="UTF-8">',
+		'\t<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+		'\t<link rel="icon" href="https://img.520jacky.dpdns.org/i/2026/04/24/549044.svg" type="image/svg+xml">',
+		'\t<title>ZQ-DnsIp - 管理面板</title>',
+		'\t<style>' + DASH_STYLES + '\t</style>',
+		'</head>',
+		'<body>',
+		'\t<div class="top">',
+		'\t\t<div class="top-inner">',
+		'\t\t\t<div class="brand"><span>ZQ-DnsIp</span><span class="tag">管理面板</span></div>',
+		'\t\t\t<button class="btn btn-ghost btn-sm" onclick="showChangePasswordModal()">修改密码</button>',
+		'\t\t</div>',
+		'\t</div>',
+		'',
+		'\t<div class="container">',
+		'\t\t<div id="alert" class="hidden"></div>',
+		'',
+		'\t\t<section class="card">',
+		'\t\t\t<div class="card-head">',
+		'\t\t\t\t<h2>Telegram 通知</h2>',
+		'\t\t\t\t<span class="hint">可选，用于接收执行结果</span>',
+		'\t\t\t</div>',
+		'\t\t\t<div class="grid grid-2">',
+		'\t\t\t\t<div class="field">',
+		'\t\t\t\t\t<label>TG Bot Token</label>',
+		'\t\t\t\t\t<input type="text" id="tgToken" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">',
+		'\t\t\t\t</div>',
+		'\t\t\t\t<div class="field">',
+		'\t\t\t\t\t<label>TG Chat ID</label>',
+		'\t\t\t\t\t<input type="text" id="tgId" placeholder="123456789">',
+		'\t\t\t\t</div>',
+		'\t\t\t</div>',
+		'\t\t</section>',
+		'',
+		'\t\t<section class="card">',
+		'\t\t\t<div class="card-head">',
+		'\t\t\t\t<h2>域名配置</h2>',
+		'\t\t\t\t<button class="btn btn-primary btn-sm" onclick="addDomain()">+ 添加域名</button>',
+		'\t\t\t</div>',
+		'\t\t\t<div id="domainList"></div>',
+		'\t\t\t<div id="emptyHint" class="empty hidden">还没有配置，点击右上角「添加域名」开始</div>',
+		'\t\t</section>',
+		'',
+		'\t\t<section class="card">',
+		'\t\t\t<div class="card-head">',
+		'\t\t\t\t<h2>执行</h2>',
+		'\t\t\t\t<span class="hint">保存配置后可立即执行一次</span>',
+		'\t\t\t</div>',
+		'\t\t\t<div class="btn-group">',
+		'\t\t\t\t<button class="btn btn-primary" onclick="saveConfig()">保存配置</button>',
+		'\t\t\t\t<button class="btn btn-ghost" onclick="executeTask()">立即执行</button>',
+		'\t\t\t</div>',
+		'\t\t\t<pre id="logArea" class="log hidden"></pre>',
+		'\t\t</section>',
+		'\t</div>',
+		'',
+		'\t<div id="passwordModal" class="modal">',
+		'\t\t<div class="modal-content">',
+		'\t\t\t<h2>修改登录密码</h2>',
+		'\t\t\t<div class="field">',
+		'\t\t\t\t<label>新密码</label>',
+		'\t\t\t\t<input type="text" id="newPassword" placeholder="输入新密码">',
+		'\t\t\t</div>',
+		'\t\t\t<div class="btn-group" style="margin-top:16px;justify-content:flex-end;">',
+		'\t\t\t\t<button class="btn btn-ghost" onclick="closePasswordModal()">取消</button>',
+		'\t\t\t\t<button class="btn btn-primary" onclick="changePassword()">确认修改</button>',
+		'\t\t\t</div>',
+		'\t\t</div>',
+		'\t</div>',
+		'',
+		'<script>',
+		'\tlet config = ' + JSON.stringify(config) + ';',
+		'',
+		'\tfunction showAlert(message, type = "success") {',
+		'\t\tconst alert = document.getElementById("alert");',
+		'\t\talert.textContent = message;',
+		'\t\talert.className = "alert alert-" + type;',
+		'\t\tsetTimeout(() => alert.className = "hidden", 3000);',
+		'\t}',
+		'',
+		'\tfunction renderDomains() {',
+		'\t\tconst container = document.getElementById("domainList");',
+		'\t\tcontainer.innerHTML = config.domains.map((domain, index) => `',
+		'\t\t\t<details class="domain-item" data-index="${index}">',
+		'\t\t\t\t<summary class="domain-header">',
+		'\t\t\t\t\t<div class="domain-title">',
+		'\t\t\t\t\t\t<span class="badge">${index + 1}</span>',
+		'\t\t\t\t\t\t<span class="domain-name">${domain.cfDomain || "未配置解析域名"}</span>',
+		'\t\t\t\t\t</div>',
+		'\t\t\t\t\t<div class="domain-actions">',
+		'\t\t\t\t\t\t<button class="btn btn-danger btn-sm" onclick="event.preventDefault(); event.stopPropagation(); removeDomain(${index})">删除</button>',
+		'\t\t\t\t\t\t<span class="chev"></span>',
+		'\t\t\t\t\t</div>',
+		'\t\t\t\t</summary>',
+		'\t\t\t\t<div class="domain-body">',
+		'',
+		'\t\t\t\t<div class="fieldset">',
+		'\t\t\t\t\t<div class="fieldset-title">CLOUDFLARE 凭据</div>',
+		'\t\t\t\t\t<div class="grid grid-2">',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>CF 登录邮箱</label>',
+		'\t\t\t\t\t\t\t<input type="text" data-field="cfMail" placeholder="admin@gmail.com" value="${domain.cfMail || ""}">',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>CF 待解析域名</label>',
+		'\t\t\t\t\t\t\t<input type="text" data-field="cfDomain" placeholder="ddns.google.com" value="${domain.cfDomain || ""}">',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>CF Zone ID</label>',
+		'\t\t\t\t\t\t\t<input type="text" data-field="cfZoneId" placeholder="区域 ID" value="${domain.cfZoneId || ""}">',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>CF API Token</label>',
+		'\t\t\t\t\t\t\t<input type="text" data-field="cfKey" placeholder="API 令牌" value="${domain.cfKey || ""}">',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t</div>',
+		'\t\t\t\t</div>',
+		'',
+		'\t\t\t\t<div class="fieldset">',
+		'\t\t\t\t\t<div class="fieldset-title">解析来源</div>',
+		'\t\t\t\t\t<div class="grid">',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>DoH URL</label>',
+		'\t\t\t\t\t\t\t<input type="text" data-field="doh" placeholder="https://cloudflare-dns.com/dns-query" value="${domain.doh || ""}">',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>解析域名（逗号或换行分隔）</label>',
+		'\t\t\t\t\t\t\t<textarea data-field="domains" placeholder="cdn.example.com, cdn2.example.com">${domain.domains || ""}</textarea>',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t</div>',
+		'\t\t\t\t</div>',
+		'',
+		'\t\t\t\t<div class="fieldset">',
+		'\t\t\t\t\t<div class="fieldset-title">IP 来源与排除</div>',
+		'\t\t\t\t\t<div class="grid grid-2">',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>IPv4（逗号或换行分隔）</label>',
+		'\t\t\t\t\t\t\t<textarea data-field="ipv4" placeholder="8.8.8.8, 1.1.1.1">${domain.ipv4 || ""}</textarea>',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>IPv6（逗号或换行分隔）</label>',
+		'\t\t\t\t\t\t\t<textarea data-field="ipv6" placeholder="2406:8dc0:...">${domain.ipv6 || ""}</textarea>',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>封禁 IP（逗号或换行分隔）</label>',
+		'\t\t\t\t\t\t\t<textarea data-field="banIp" placeholder="1.1.1.1">${domain.banIp || ""}</textarea>',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t\t<div class="field">',
+		'\t\t\t\t\t\t\t<label>IP API（逗号或换行分隔）</label>',
+		'\t\t\t\t\t\t\t<textarea data-field="ipApi" placeholder="https://example.com/api/ip">${domain.ipApi || ""}</textarea>',
+		'\t\t\t\t\t\t</div>',
+		'\t\t\t\t\t</div>',
+		'\t\t\t\t</div>',
+		'\t\t\t\t</div>',
+		'\t\t\t</details>',
+		'\t\t`).join("");',
+		'',
+		'\t\tdocument.getElementById("emptyHint").classList.toggle("hidden", config.domains.length > 0);',
+		'\t\tdocument.getElementById("tgToken").value = config.tgToken || "";',
+		'\t\tdocument.getElementById("tgId").value = config.tgId || "";',
+		'\t}',
+		'',
+		'\tfunction collectConfig() {',
+		'\t\tconst domains = [];',
+		'\t\tdocument.querySelectorAll(".domain-item").forEach(item => {',
+		'\t\t\tconst domain = {};',
+		'\t\t\titem.querySelectorAll("[data-field]").forEach(input => {',
+		'\t\t\t\tdomain[input.dataset.field] = input.value;',
+		'\t\t\t});',
+		'\t\t\tdomains.push(domain);',
+		'\t\t});',
+		'\t\treturn {',
+		'\t\t\ttgToken: document.getElementById("tgToken").value,',
+		'\t\t\ttgId: document.getElementById("tgId").value,',
+		'\t\t\tdomains',
+		'\t\t};',
+		'\t}',
+		'',
+		'\tfunction addDomain() {',
+		'\t\tconfig = collectConfig();',
+		'\t\tconfig.domains.push({});',
+		'\t\trenderDomains();',
+		'\t}',
+		'',
+		'\tfunction removeDomain(index) {',
+		'\t\tconfig = collectConfig();',
+		'\t\tconfig.domains.splice(index, 1);',
+		'\t\trenderDomains();',
+		'\t}',
+		'',
+		'\tasync function saveConfig() {',
+		'\t\tconfig = collectConfig();',
+		'\t\tconst response = await fetch("/api/save-config", {',
+		'\t\t\tmethod: "POST",',
+		'\t\t\theaders: { "Content-Type": "application/json" },',
+		'\t\t\tbody: JSON.stringify(config)',
+		'\t\t});',
+		'\t\tconst result = await response.json();',
+		'\t\tif (result.success) showAlert("配置保存成功！");',
+		'\t\telse showAlert("保存失败: " + result.error, "danger");',
+		'\t}',
+		'',
+		'\tfunction showChangePasswordModal() {',
+		'\t\tdocument.getElementById("passwordModal").classList.add("show");',
+		'\t}',
+		'',
+		'\tfunction closePasswordModal() {',
+		'\t\tdocument.getElementById("passwordModal").classList.remove("show");',
+		'\t}',
+		'',
+		'\tasync function changePassword() {',
+		'\t\tconst newPassword = document.getElementById("newPassword").value;',
+		'\t\tif (!newPassword) {',
+		'\t\t\tshowAlert("密码不能为空", "danger");',
+		'\t\t\treturn;',
+		'\t\t}',
+		'\t\tconst response = await fetch("/api/change-password", {',
+		'\t\t\tmethod: "POST",',
+		'\t\t\theaders: { "Content-Type": "application/json" },',
+		'\t\t\tbody: JSON.stringify({ newPassword })',
+		'\t\t});',
+		'\t\tconst result = await response.json();',
+		'\t\tif (result.success) {',
+		'\t\t\tshowAlert("密码修改成功！请重新登录");',
+		'\t\t\tsetTimeout(() => {',
+		'\t\t\t\tdocument.location.href = "/login";',
+		'\t\t\t}, 1500);',
+		'\t\t} else {',
+		'\t\t\tshowAlert("密码修改失败: " + result.error, "danger");',
+		'\t\t}',
+		'\t}',
+		'',
+		'\tasync function executeTask() {',
+		'\t\tconst logArea = document.getElementById("logArea");',
+		'\t\tlogArea.classList.remove("hidden");',
+		'\t\tlogArea.innerHTML = "执行中...\\n";',
+		'',
+		'\t\ttry {',
+		'\t\t\tconst configData = collectConfig();',
+		'\t\t\tconst response = await fetch("/execute", {',
+		'\t\t\t\tmethod: "POST",',
+		'\t\t\t\theaders: { "Content-Type": "application/json" },',
+		'\t\t\t\tbody: JSON.stringify(configData)',
+		'\t\t\t});',
+		'\t\t\tconst result = await response.json();',
+		'\t\t\tlogArea.innerHTML = result.log || "执行完成";',
+		'\t\t} catch (e) {',
+		'\t\t\tlogArea.innerHTML = "错误: " + e.message;',
+		'\t\t}',
+		'\t}',
+		'',
+		'\trenderDomains();',
+		'</script>',
+		'</body>',
+		'</html>'
+	];
+	return new Response(parts.join('\n'), {
+		headers: { 'Content-Type': 'text/html; charset=utf-8' }
+	});
 }
-
-// ==================== 任务执行 ====================
 
 async function executeTask(env) {
 	const KV = env.DnsIp || null;
